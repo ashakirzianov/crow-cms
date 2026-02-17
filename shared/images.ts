@@ -1,7 +1,5 @@
 import sharp from 'sharp'
 
-const MAX_AREA = 1500 * 1500
-
 export type ProcessedImage = {
     buffer: Buffer
     width: number
@@ -47,33 +45,13 @@ export async function processImage(file: File): Promise<{
             }
         }
 
-        let processedBuffer = buffer
-        let finalWidth = metadata.width
-        let finalHeight = metadata.height
-
-        // Resize image if width exceeds maximum
-        if (metadata.width * metadata.height > MAX_AREA) {
-            // Calculate new height to maintain aspect ratio
-            const factor = Math.sqrt(MAX_AREA / (metadata.width * metadata.height))
-            finalWidth = Math.round(metadata.width * factor)
-            finalHeight = Math.round(metadata.height * factor)
-
-            // Resize the image
-            const resizedBuffer = await image
-                .resize(finalWidth, finalHeight, { fit: 'inside' })
-                .toBuffer()
-
-            // Convert to standard Buffer type to avoid type issues
-            processedBuffer = Buffer.from(resizedBuffer)
-        }
-
         return {
             success: true,
             message: 'Image processed successfully',
             image: {
-                buffer: processedBuffer,
-                width: finalWidth,
-                height: finalHeight,
+                buffer: buffer,
+                width: metadata.width,
+                height: metadata.height,
                 format: metadata.format,
                 originalName: file.name
             }
