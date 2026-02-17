@@ -2,7 +2,7 @@ import { getAllAssetMetadata } from "@/shared/metadataStore"
 import ConsolePage from "./ConsolePage"
 import { sortAssets } from "@/shared/assets"
 import { Authenticator, } from "./Authenticator"
-import { currentUsername } from "@/shared/auth"
+import { isAuthorized } from "@/shared/auth"
 
 export default async function Page({
     params, searchParams,
@@ -13,8 +13,7 @@ export default async function Page({
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
     const { project } = await params
-    const username = await currentUsername()
-    if (!username) {
+    if (!await isAuthorized(project)) {
         return <Authenticator project={project} />
     }
     const resolved = await searchParams

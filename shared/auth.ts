@@ -2,12 +2,24 @@
 import { cookies } from "next/headers"
 import crypto from "crypto"
 
-export async function isAuthorized(_project: string) {
-    const username = await currentUsername()
-    return !!username
+const authorizations: Record<string, string[]> = {
+    alikro: ['alikro', 'ashakirzianov'],
 }
 
-export async function currentUsername() {
+export async function isAuthorized(project: string) {
+    const username = await currentUsername()
+    if (username === null) {
+        return false
+    }
+    const authorizedUsers = authorizations[project]
+    if (!authorizedUsers) {
+        console.warn(`No authorization config found for project "${project}", denying access by default`)
+        return false
+    }
+    return authorizedUsers.includes(username)
+}
+
+async function currentUsername() {
     const secret = process.env.AUTH_SECRET
     if (!secret) {
         console.error('No auth secret provided')
@@ -39,8 +51,6 @@ export async function authenticate(username: string, password: string) {
             httpOnly: true,
         })
     } else {
-        const password = await generateNewPassword(username)
-        console.warn(`Failed login attempt for "${username}". Expected password: ${password}`)
         return false
     }
 
