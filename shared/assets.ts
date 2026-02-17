@@ -19,8 +19,8 @@ export type AssetMetadataUpdate = Omit<
     'fileName' | 'width' | 'height' | 'uploaded'
 >
 
-export type AssetKind = 'drawing' | 'illustration' | 'painting' | 'poster' | 'hidden' | 'collage' | 'tattoo'
-export type AssetTag = 'selfportrait' | 'favorite' | 'secondary'
+export type AssetKind = string
+export type AssetTag = string
 export type AssetQuery = null | string | AssetQuery[] | {
     kind: 'or',
     queries: AssetQuery[],
