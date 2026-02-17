@@ -114,50 +114,43 @@ export async function createImageVariant({
         const buffer = Buffer.from(arrayBuffer)
 
         // Use sharp to process the image
-        let image = sharp(buffer)
+        let image = sharp(buffer, {
+            animated: true, // Support animated images (e.g. GIFs)
+            failOnError: false,
+            limitInputPixels: 268402689, // ~16k x 16k; pick what you want
+            sequentialRead: true,
+        })
             .rotate() // Auto-rotate based on EXIF data
 
-        // Get image metadata
-        const metadata = await image.metadata()
-
-        if (!metadata.width || !metadata.height || !metadata.format) {
-            return {
-                success: false,
-                message: 'Could not determine image dimensions or format'
-            }
-        }
-
-        let finalWidth = metadata.width
-        let finalHeight = metadata.height
-
-        // Resize image if width exceeds maximum
-        if (width !== undefined && metadata.width !== width) {
-            // Calculate new height to maintain aspect ratio
-            const factor = width / metadata.width
-            finalWidth = Math.round(metadata.width * factor)
-            finalHeight = Math.round(metadata.height * factor)
-
+        // Resize image if width is specified and different from original
+        if (width !== undefined) {
             // Resize the image
-            image = await image
-                .resize(finalWidth, finalHeight, { fit: 'inside' })
+            image = image
+                .resize({ width, withoutEnlargement: true })
         }
+        image = image.webp({
+            quality: quality ?? 80,
+            effort: 5,
+            smartSubsample: true,
+        })
 
-        const imageBuffer = await image
-            .webp({ quality: quality ?? 100 })
-            .toBuffer()
+        const { data, info } = await image
+            .toBuffer({ resolveWithObject: true })
 
         // Convert to standard Buffer type to avoid type issues
-        const processedBuffer = Buffer.from(imageBuffer)
+        const processedBuffer = Buffer.from(data)
+
+        const newName = `${file.name}@${width !== undefined ? `w${width}` : ''}${quality !== undefined ? `q${quality}` : ''}.webp`
         return {
             success: true,
             message: 'Image processed successfully',
             image: {
                 buffer: processedBuffer,
-                width: finalWidth,
-                height: finalHeight,
-                format: metadata.format,
+                width: info.width,
+                height: info.height,
+                format: info.format,
                 originalName: file.name,
-                newName: `${file.name}.webp`
+                newName: newName
             }
         }
     } catch (error) {
