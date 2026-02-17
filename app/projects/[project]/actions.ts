@@ -1,7 +1,7 @@
 'use server'
 import { AssetMetadata, AssetMetadataUpdate, AssetKind, parseTagsString } from "@/shared/assets"
 import { applyMetadataUpdates, deleteAssetMetadata, getAssetMetadata } from "@/shared/metadataStore"
-import { isAuthenticated } from "@/shared/auth"
+import { isAuthorized } from "@/shared/auth"
 import { parseAssetUpdates } from "@/app/projects/[project]/common"
 import { uploadAssetFile } from "@/shared/fileStore"
 import { revalidatePath } from "next/cache"
@@ -14,7 +14,7 @@ export async function updateAsset({
     formData: FormData,
 }): Promise<{ success: boolean, message: string, asset?: AssetMetadata }> {
     try {
-        if (!await isAuthenticated()) {
+        if (!await isAuthorized(project)) {
             return { success: false, message: 'Unauthorized' }
         }
         // Get current asset data
@@ -79,7 +79,7 @@ export async function deleteAsset({
     id: string
 }): Promise<{ success: boolean, message: string }> {
     try {
-        if (!await isAuthenticated()) {
+        if (!await isAuthorized(project)) {
             return { success: false, message: 'Unauthorized' }
         }
         // Get current asset data to verify it exists
@@ -118,7 +118,7 @@ export async function uploadFile({ project, formData }: { project: string, formD
     assetId?: string;
 }> {
     try {
-        if (!await isAuthenticated()) {
+        if (!await isAuthorized(project)) {
             return { success: false, message: 'Unauthorized' }
         }
         // Get the file from the form data
@@ -162,7 +162,7 @@ export type HandleJsonEditState = {
     saved?: boolean,
 }
 export async function handleJsonEdit({ project }: HandleJsonEditState, formData: FormData): Promise<HandleJsonEditState> {
-    if (await isAuthenticated()) {
+    if (!await isAuthorized(project)) {
         return { success: false, message: 'Unauthorized', project }
     }
     const json = formData.get('json')
