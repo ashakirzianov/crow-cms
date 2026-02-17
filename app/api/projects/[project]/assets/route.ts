@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { isAuthorized } from "@/shared/auth"
 import { getAllAssetMetadata } from "@/shared/metadataStore"
-import { sortAssets } from "@/shared/assets"
-import { originalsRoot } from "@/shared/href"
+import { AssetMetadata, sortAssets } from "@/shared/assets"
 
-export type GetResponse = {
-    assets: Awaited<ReturnType<typeof getAllAssetMetadata>>,
-    root: string,
-}
+export type GetResponse = AssetMetadata[]
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ project: string }> },
@@ -18,9 +14,6 @@ export async function GET(
     }
 
     const assets = await getAllAssetMetadata({ project })
-    const response: GetResponse = {
-        assets: sortAssets(assets ?? []),
-        root: originalsRoot(project),
-    }
+    const response: GetResponse = sortAssets(assets ?? [])
     return NextResponse.json(response)
 }

@@ -2,12 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { isAuthorized } from "@/shared/auth"
 import { getAssetMetadata } from "@/shared/metadataStore"
 import { AssetMetadata } from "@/shared/assets"
-import { originalsRoot } from "@/shared/href"
 
-export type GetResponse = {
-    asset: AssetMetadata,
-    root: string,
-}
+export type GetResponse = AssetMetadata
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ project: string, assetId: string }> },
@@ -22,10 +18,6 @@ export async function GET(
         return NextResponse.json({ error: "Asset not found" }, { status: 404 })
     }
 
-    const root = originalsRoot(project)
-    const response: GetResponse = {
-        asset,
-        root,
-    }
+    const response: GetResponse = asset
     return NextResponse.json(response)
 }
