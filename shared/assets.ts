@@ -42,8 +42,8 @@ export function assetMetadataUpdate(asset: AssetMetadata): AssetMetadataUpdate {
     return update
 }
 
-export function assetSrc(asset: AssetMetadata) {
-    return `https://${process.env.NEXT_PUBLIC_ASSETS_DOMAIN}/${asset.fileName}`
+export function assetSrc(asset: AssetMetadata, project: string): string {
+    return `https://${process.env.NEXT_PUBLIC_ASSETS_DOMAIN}/${project}/originals/${asset.fileName}`
 }
 
 export function assetAlt(asset: AssetMetadata) {

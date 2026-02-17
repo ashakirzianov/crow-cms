@@ -315,6 +315,7 @@ export default function AssetEditor({
 
         <div className="mt-6">
           <AssetImage
+            project={project}
             asset={asset}
             size="medium"
             style={{

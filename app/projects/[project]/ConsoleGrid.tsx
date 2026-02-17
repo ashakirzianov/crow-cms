@@ -74,6 +74,7 @@ function AssetCard({
                 <div className="h-32 flex items-center justify-center">
                     <div className="h-full relative w-full">
                         <AssetImage
+                            project={project}
                             asset={asset}
                             size="medium"
                             style={{

@@ -4,6 +4,7 @@ import { AssetMetadata, assetAlt, assetHeight, assetSrc, assetWidth } from "./as
 export type AssetImageSize = 'medium' | 'full'
 
 interface AssetImageProps {
+    project: string
     asset: AssetMetadata
     size: AssetImageSize
     style?: React.CSSProperties
@@ -24,11 +25,11 @@ function getDimensionsForAsset(asset: AssetMetadata, _size: AssetImageSize): [nu
     return [width, height]
 }
 
-export function AssetImage({ asset, size, style }: AssetImageProps) {
+export function AssetImage({ project, asset, size, style }: AssetImageProps) {
     const [width, height] = getDimensionsForAsset(asset, size)
     return (
         <Image
-            src={assetSrc(asset)}
+            src={assetSrc(asset, project)}
             alt={assetAlt(asset)}
             width={width}
             height={height}
