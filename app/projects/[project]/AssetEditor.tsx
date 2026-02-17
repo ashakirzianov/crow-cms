@@ -4,9 +4,10 @@ import { AssetImage } from "@/shared/AssetImage"
 import { AssetKind, AssetMetadata, AssetTag } from "@/shared/assets"
 import { useState, useTransition, useEffect, useRef } from "react"
 import { Button } from "@/shared/Atoms"
-import { deleteAsset, updateAsset } from "@/app/console/actions"
+import { deleteAsset, updateAsset } from "@/app/projects/[project]/actions"
 
 export default function AssetEditor({
+  project,
   asset,
   orderRange,
   kinds,
@@ -14,6 +15,7 @@ export default function AssetEditor({
   onUpdate,
   onDelete
 }: {
+  project: string,
   asset: AssetMetadata,
   orderRange: [number, number],
   kinds: AssetKind[],
@@ -37,7 +39,7 @@ export default function AssetEditor({
   const handleSubmit = async (formData: FormData) => {
     setMessage(null)
     startTransition(async () => {
-      const result = await updateAsset(asset.id, formData)
+      const result = await updateAsset({ project, id: asset.id, formData })
 
       if (result.success && result.asset) {
         setMessage({ type: 'success', text: result.message })
@@ -57,7 +59,7 @@ export default function AssetEditor({
   const confirmDelete = () => {
     setMessage(null)
     startTransition(async () => {
-      const result = await deleteAsset(asset.id)
+      const result = await deleteAsset({ project, id: asset.id })
 
       if (result.success) {
         setMessage({ type: 'success', text: result.message })
@@ -87,7 +89,7 @@ export default function AssetEditor({
 
     setMessage(null)
     startTransition(async () => {
-      const result = await updateAsset(asset.id, formData)
+      const result = await updateAsset({ project, id: asset.id, formData })
       if (result.success && result.asset) {
         setMessage({ type: 'success', text: 'Moved to top' })
         if (onUpdate) {
@@ -111,7 +113,7 @@ export default function AssetEditor({
 
     setMessage(null)
     startTransition(async () => {
-      const result = await updateAsset(asset.id, formData)
+      const result = await updateAsset({ project, id: asset.id, formData })
       if (result.success && result.asset) {
         setMessage({ type: 'success', text: 'Moved to bottom' })
         if (onUpdate) {

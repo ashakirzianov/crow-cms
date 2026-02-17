@@ -3,21 +3,23 @@ import { Button } from "@/shared/Atoms"
 import { normalizeOrder } from "./workers"
 import { useActionState } from "react"
 
-export default function WorkersPane() {
+export default function WorkersPane({ project }: { project: string }) {
     return <section>
         <WorkerButton
             title="Normalize Order"
+            project={project}
             action={normalizeOrder}
         />
     </section>
 }
 
-function WorkerButton({ title, action }: {
+function WorkerButton({ title, action, project }: {
+    project: string,
     title: string,
-    action: () => Promise<boolean>
+    action: (payload: { project: string }) => Promise<boolean>
 }) {
     async function handleAction(): Promise<ActionState> {
-        const result = await action()
+        const result = await action({ project })
         if (result) {
             return 'success'
         } else {

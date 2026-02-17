@@ -4,7 +4,7 @@ import { useRef, useState } from "react"
 import { Button } from "@/shared/Atoms"
 import { uploadFile } from "./actions"
 
-export default function FileUploader() {
+export default function FileUploader({ project }: { project: string }) {
     const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'complete'>('idle')
     const [uploadProgress, setUploadProgress] = useState<Map<string, UploadProgress>>(new Map())
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -71,7 +71,7 @@ export default function FileUploader() {
                 formData.append('file', file)
 
                 // Upload to server using the server action
-                const result = await uploadFile(formData)
+                const result = await uploadFile({ project, formData })
 
                 // Clear the progress interval
                 clearInterval(progressUpdateInterval)

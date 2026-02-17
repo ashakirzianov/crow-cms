@@ -5,39 +5,50 @@ type AssetMetadataValue = Omit<AssetMetadata, 'id'>
 
 // Initialize Redis
 const redis = Redis.fromEnv()
-const ASSETS = 'crow-cms/assets'
-let allAssets: AssetMetadata[] | null = null
-function invalidateCache() {
-    allAssets = null
+
+type AssetsCache = {
+    [project: string]: AssetMetadata[] | null
 }
-export async function getAllAssetMetadata(force?: boolean) {
-    if (force || null === allAssets) {
-        allAssets = await loadAllAssetMetadata()
-        setTimeout(invalidateCache, 1000 * 60 * 1) // Invalidate cache after 1 minute
-    }
-    return allAssets
+let allAssets: AssetsCache = {}
+function invalidateCache() {
+    allAssets = {}
 }
 
-export async function getAssetMetadata(id: string) {
+function assetsKey(project: string) {
+    return `crow-cms:assets:${project}`
+}
+
+export async function getAllAssetMetadata({ project, force }: {
+    project: string,
+    force?: boolean,
+}) {
+    if (force || !allAssets[project]) {
+        allAssets[project] = await loadAllAssetMetadata({ project })
+        setTimeout(invalidateCache, 1000 * 60 * 1) // Invalidate cache after 1 minute
+    }
+    return allAssets[project]
+}
+
+export async function getAssetMetadata({ id, project }: { id: string, project: string }) {
     if (null !== allAssets) {
-        const asset = allAssets.find((asset) => asset.id === id)
+        const asset = allAssets[project]?.find((asset) => asset.id === id)
         if (asset) {
             return asset
         }
     }
-    return loadAssetMetadata(id)
+    return loadAssetMetadata({ id, project })
 }
 
-export async function getAssetNames() {
-    return redis.hkeys(ASSETS)
+export async function getAssetNames({ project }: { project: string }) {
+    return redis.hkeys(assetsKey(project))
 }
 
 // Store a single asset
-export async function storeAsset(asset: AssetMetadata): Promise<boolean> {
+export async function storeAsset({ asset, project }: { asset: AssetMetadata, project: string }): Promise<boolean> {
     if (!asset.fileName) throw new Error('Asset must have a URL')
     const { id, ...metadata } = asset
 
-    await redis.hset(ASSETS, {
+    await redis.hset(assetsKey(project), {
         [id]: JSON.stringify(metadata),
     })
     invalidateCache()
@@ -46,7 +57,7 @@ export async function storeAsset(asset: AssetMetadata): Promise<boolean> {
 }
 
 // Store multiple assets
-export async function storeAssets(assets: AssetMetadata[]): Promise<boolean> {
+export async function storeAssets({ assets, project }: { assets: AssetMetadata[], project: string }): Promise<boolean> {
     const entries: AssetsRecord = {}
 
     for (const asset of assets) {
@@ -57,22 +68,22 @@ export async function storeAssets(assets: AssetMetadata[]): Promise<boolean> {
         entries[id] = metadata
     }
 
-    await redis.hset(ASSETS, entries)
+    await redis.hset(assetsKey(project), entries)
     invalidateCache()
 
     return true
 }
 
 // Delete a single asset
-export async function deleteAssetMetadata(id: string): Promise<boolean> {
-    const result = await redis.hdel(ASSETS, id)
+export async function deleteAssetMetadata({ id, project }: { id: string, project: string }): Promise<boolean> {
+    const result = await redis.hdel(assetsKey(project), id)
     invalidateCache()
     return result > 0
 }
 
 export async function applyMetadataUpdates(
-    updates: AssetMetadataUpdate[]) {
-    const data = await redis.hgetall<AssetsRecord>(ASSETS)
+    { project, updates }: { project: string, updates: AssetMetadataUpdate[] }) {
+    const data = await redis.hgetall<AssetsRecord>(assetsKey(project))
     if (!data) {
         return false
     }
@@ -88,7 +99,7 @@ export async function applyMetadataUpdates(
     }
 
     if (Object.keys(assetStore).length > 0) {
-        await redis.hset(ASSETS, assetStore)
+        await redis.hset(assetsKey(project), assetStore)
         invalidateCache()
         return true
     } else {
@@ -96,32 +107,8 @@ export async function applyMetadataUpdates(
     }
 }
 
-export async function seed(assets: AssetMetadata[], force: boolean) {
-    const assetStore: AssetsRecord = {}
-    let storedSet: Set<string> = new Set()
-    if (!force) {
-        const storedNames = await getAssetNames()
-        storedSet = new Set(storedNames)
-    }
-    let hasAny = false
-    for (const asset of assets) {
-        if (storedSet.has(asset.fileName)) {
-            continue
-        }
-        const { id, ...metadata } = asset
-        assetStore[id] = metadata
-        hasAny = true
-    }
-    if (!hasAny) {
-        return 0
-    } else {
-        invalidateCache()
-        return redis.hset(ASSETS, assetStore)
-    }
-}
-
-export async function cleanMetadataStore() {
-    await redis.del(ASSETS)
+export async function cleanMetadataStore({ project }: { project: string }) {
+    await redis.del(assetsKey(project))
     invalidateCache()
 }
 
@@ -129,8 +116,8 @@ type AssetsRecord = {
     [key: string]: AssetMetadataValue,
 }
 
-async function loadAssetMetadata(id: string): Promise<AssetMetadata | undefined> {
-    const data = await redis.hget<AssetMetadataValue>(ASSETS, id)
+async function loadAssetMetadata({ id, project }: { id: string, project: string }): Promise<AssetMetadata | undefined> {
+    const data = await redis.hget<AssetMetadataValue>(assetsKey(project), id)
     if (!data) {
         return undefined
     }
@@ -138,8 +125,8 @@ async function loadAssetMetadata(id: string): Promise<AssetMetadata | undefined>
 }
 
 // Get all stored assets
-async function loadAllAssetMetadata(): Promise<AssetMetadata[]> {
-    const data = await redis.hgetall<AssetsRecord>(ASSETS)
+async function loadAllAssetMetadata({ project }: { project: string }): Promise<AssetMetadata[]> {
+    const data = await redis.hgetall<AssetsRecord>(assetsKey(project))
     if (!data) {
         return []
     } else {

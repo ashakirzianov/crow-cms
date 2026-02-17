@@ -5,8 +5,10 @@ import AssetEditor from "./AssetEditor"
 import WorkersPane from "./WorkersPane"
 
 export default function ConsoleAside({
+    project,
     assets, query, action, assetId,
 }: {
+    project: string,
     assets: AssetMetadata[],
     query: AssetQuery,
     action: string | undefined,
@@ -14,11 +16,11 @@ export default function ConsoleAside({
 }) {
     switch (action) {
         case 'upload':
-            return <FileUploader />
+            return <FileUploader project={project} />
         case 'json':
             const filterd = assetsForQuery(assets, query)
             const json = JSON.stringify(filterd, null, 2)
-            return <JsonEditor initialJson={json} />
+            return <JsonEditor project={project} initialJson={json} />
         case 'edit':
             const asset = assets.find(a => a.id === assetId)
             if (asset === undefined) {
@@ -29,13 +31,14 @@ export default function ConsoleAside({
             const tags = extractUniqueTags(assets)
             return <AssetEditor
                 key={asset.id} // Add key to ensure component re-mounts when asset changes
+                project={project}
                 asset={asset}
                 orderRange={orderRange}
                 kinds={kinds}
                 tags={tags}
             />
         case 'workers':
-            return <WorkersPane />
+            return <WorkersPane project={project} />
         default:
             return null
     }

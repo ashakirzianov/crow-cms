@@ -1,6 +1,8 @@
 export function hrefForConsole({
+    project,
     filter, action, assetId
 }: {
+    project: string,
     filter?: string,
     action?: string,
     assetId?: string,
@@ -15,6 +17,6 @@ export function hrefForConsole({
         searchParams.set('aside', action)
     }
     return searchParams.size === 0
-        ? '/console'
-        : `/console?${searchParams.toString()}`
+        ? `/projects/${project}`
+        : `/projects/${project}?${searchParams.toString()}`
 }

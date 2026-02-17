@@ -33,7 +33,7 @@ export type ProcessedImage = {
  * 2. Generate unique asset ID and upload to S3
  * 3. Create metadata record
  */
-export async function uploadAssetFile(file: File): Promise<{
+export async function uploadAssetFile({ file, project }: { file: File, project: string }): Promise<{
     success: boolean;
     message: string;
     fileName?: string;
@@ -50,7 +50,7 @@ export async function uploadAssetFile(file: File): Promise<{
         const { image } = processResult
 
         // STAGE 2: Generate unique asset ID and upload to S3
-        const uploadResult = await uploadImageToS3WithUniqueId(image)
+        const uploadResult = await uploadImageToS3WithUniqueId({ image, project })
         if (!uploadResult.success || !uploadResult.fileName || !uploadResult.assetId) {
             console.error('Upload failed:', uploadResult)
             return uploadResult
@@ -60,12 +60,15 @@ export async function uploadAssetFile(file: File): Promise<{
 
         // STAGE 3: Create metadata record
         const metadataResult = await createAssetMetadata({
-            id: assetId,
-            fileName,
-            width: image.width,
-            height: image.height,
-            uploaded: Date.now(),
-            kind: UNPUBLISHED_KIND,
+            project,
+            asset: {
+                id: assetId,
+                fileName,
+                width: image.width,
+                height: image.height,
+                uploaded: Date.now(),
+                kind: UNPUBLISHED_KIND,
+            },
         })
 
         if (!metadataResult.success) {
@@ -174,7 +177,7 @@ async function processImage(file: File): Promise<{
 /**
  * Stage 2: Generate unique asset ID and upload to S3
  */
-async function uploadImageToS3WithUniqueId(image: ProcessedImage): Promise<{
+async function uploadImageToS3WithUniqueId({ image, project }: { image: ProcessedImage, project: string }): Promise<{
     success: boolean;
     message: string;
     fileName?: string;
@@ -191,7 +194,7 @@ async function uploadImageToS3WithUniqueId(image: ProcessedImage): Promise<{
         }
 
         // Get existing asset IDs to check for uniqueness
-        const existingAssetNames = await getAssetNames()
+        const existingAssetNames = await getAssetNames({ project })
         const existingAssetIds = new Set(existingAssetNames)
 
         const [baseFileName, fileExtension] = splitFileNameAndExtension(image.originalName)
@@ -211,7 +214,10 @@ async function uploadImageToS3WithUniqueId(image: ProcessedImage): Promise<{
         }
 
         // Generate the file name with extension
-        const key = fileName
+        const key = fullKeyForOriginal({
+            assetId,
+            project,
+        })
 
         // Upload to S3 bucket
         const result = await uploadToS3Bucket({
@@ -245,12 +251,12 @@ async function uploadImageToS3WithUniqueId(image: ProcessedImage): Promise<{
 /**
  * Stage 3: Create metadata record for the uploaded asset
  */
-async function createAssetMetadata(assetData: AssetMetadata): Promise<{
+async function createAssetMetadata({ asset, project }: { asset: AssetMetadata, project: string }): Promise<{
     success: boolean;
     message: string;
 }> {
     try {
-        await storeAsset(assetData)
+        await storeAsset({ asset, project })
         return {
             success: true,
             message: 'Asset metadata created successfully'
@@ -333,4 +339,14 @@ function getS3Client() {
             secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
         }
     })
+}
+
+function fullKeyForOriginal({
+    assetId,
+    project,
+}: {
+    assetId: string
+    project: string
+}) {
+    return `${project}/originals/${assetId}`
 }

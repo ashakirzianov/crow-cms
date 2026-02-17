@@ -3,8 +3,8 @@
 import { AssetMetadataUpdate, sortAssets } from "@/shared/assets"
 import { applyMetadataUpdates, getAllAssetMetadata } from "@/shared/metadataStore"
 
-export async function normalizeOrder() {
-    const allAssets = await getAllAssetMetadata(true)
+export async function normalizeOrder({ project }: { project: string }) {
+    const allAssets = await getAllAssetMetadata({ project, force: true })
     const sorted = sortAssets(allAssets)
     const updates: AssetMetadataUpdate[] = sorted.map((asset, index) => {
         return {
@@ -12,6 +12,6 @@ export async function normalizeOrder() {
             order: index + 1,
         }
     })
-    const result = await applyMetadataUpdates(updates)
+    const result = await applyMetadataUpdates({ project, updates })
     return result
 }

@@ -5,12 +5,14 @@ import { Button } from "@/shared/Atoms"
 import { handleJsonEdit } from "./actions"
 import { parseAssetUpdates } from "./common"
 
-export function JsonEditor({ initialJson }: {
+export function JsonEditor({ project, initialJson }: {
+    project: string,
     initialJson: string,
 }) {
     const [text, setText] = useState(initialJson)
     const [state, formAction, isPending] = useActionState(handleJsonEdit, {
         success: true,
+        project,
     })
     useEffect(() => {
         setText(initialJson)

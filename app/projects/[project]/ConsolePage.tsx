@@ -6,8 +6,9 @@ import ConsoleAside from "./ConsoleAside"
 
 export type ConsoleSearchParams = { [key: string]: string | string[] | undefined }
 export default function ConsolePage({
-    assets, searchParams, shallow,
+    project, assets, searchParams, shallow,
 }: {
+    project: string,
     assets: AssetMetadata[],
     searchParams: ConsoleSearchParams,
     shallow?: boolean,
@@ -19,6 +20,7 @@ export default function ConsolePage({
     const query = filter === 'all' ? null : filter
     const filteredAssets = assetsForQuery(assets, query)
     const aside = <ConsoleAside
+        project={project}
         assets={assets}
         query={query}
         action={action}
@@ -29,6 +31,7 @@ export default function ConsolePage({
             {/* Header */}
             <header className="w-full">
                 <ConsoleHeader
+                    project={project}
                     kinds={kinds}
                     tags={tags}
                     selectedFilter={filter}
@@ -42,6 +45,7 @@ export default function ConsolePage({
                 {/* Main content */}
                 <main className={clsx("flex-1 overflow-auto p-4 w-full")}>
                     <ConsoleGrid
+                        project={project}
                         filter={filter}
                         assets={filteredAssets}
                         selectedAssetId={assetId}

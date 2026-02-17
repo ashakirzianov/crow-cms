@@ -2,20 +2,23 @@
 import { AssetMetadata, AssetMetadataUpdate, AssetKind, parseTagsString } from "@/shared/assets"
 import { applyMetadataUpdates, deleteAssetMetadata, getAssetMetadata } from "@/shared/metadataStore"
 import { isAuthenticated } from "@/shared/auth"
-import { parseAssetUpdates } from "@/app/console/common"
+import { parseAssetUpdates } from "@/app/projects/[project]/common"
 import { uploadAssetFile } from "@/shared/fileStore"
 import { revalidatePath } from "next/cache"
 
-export async function updateAsset(
+export async function updateAsset({
+    project, id, formData,
+}: {
+    project: string,
     id: string,
-    formData: FormData
-): Promise<{ success: boolean, message: string, asset?: AssetMetadata }> {
+    formData: FormData,
+}): Promise<{ success: boolean, message: string, asset?: AssetMetadata }> {
     try {
         if (!await isAuthenticated()) {
             return { success: false, message: 'Unauthorized' }
         }
         // Get current asset data
-        const asset = await getAssetMetadata(id)
+        const asset = await getAssetMetadata({ id, project })
         if (!asset) {
             return { success: false, message: `Asset with ID "${id}" not found` }
         }
@@ -47,10 +50,10 @@ export async function updateAsset(
         update.tags = parseTagsString(tagsString)
 
         // Apply update
-        await applyMetadataUpdates([update])
+        await applyMetadataUpdates({ project, updates: [update] })
 
         // Get updated asset
-        const updatedAsset = await getAssetMetadata(id)
+        const updatedAsset = await getAssetMetadata({ id, project })
 
         // Revalidate the console path to reflect changes
         revalidatePathsForAssets([update])
@@ -69,21 +72,24 @@ export async function updateAsset(
     }
 }
 
-export async function deleteAsset(
+export async function deleteAsset({
+    project, id
+}: {
+    project: string,
     id: string
-): Promise<{ success: boolean, message: string }> {
+}): Promise<{ success: boolean, message: string }> {
     try {
         if (!await isAuthenticated()) {
             return { success: false, message: 'Unauthorized' }
         }
         // Get current asset data to verify it exists
-        const asset = await getAssetMetadata(id)
+        const asset = await getAssetMetadata({ id, project })
         if (!asset) {
             return { success: false, message: `Asset with ID "${id}" not found` }
         }
 
         // Delete the asset from metadata store using the dedicated function
-        const result = await deleteAssetMetadata(id)
+        const result = await deleteAssetMetadata({ id, project })
 
         // Revalidate the console path to reflect changes
         if (result) {
@@ -104,7 +110,7 @@ export async function deleteAsset(
 }
 
 // Server action for uploading files
-export async function uploadFile(formData: FormData): Promise<{
+export async function uploadFile({ project, formData }: { project: string, formData: FormData }): Promise<{
     success: boolean;
     message: string;
     fileName?: string;
@@ -130,7 +136,7 @@ export async function uploadFile(formData: FormData): Promise<{
         // 2. Generates a unique asset ID based on filename
         // 3. Uploads to S3
         // 4. Creates metadata record
-        const result = await uploadAssetFile(file)
+        const result = await uploadAssetFile({ file, project })
 
         // Revalidate the console path to reflect the new asset
         if (result.success && result.assetId) {
@@ -150,30 +156,33 @@ export async function uploadFile(formData: FormData): Promise<{
 }
 
 export type HandleJsonEditState = {
+    project: string,
     success: boolean,
     message?: string,
     saved?: boolean,
 }
-export async function handleJsonEdit(prevState: HandleJsonEditState, formData: FormData): Promise<HandleJsonEditState> {
+export async function handleJsonEdit({ project }: HandleJsonEditState, formData: FormData): Promise<HandleJsonEditState> {
     if (await isAuthenticated()) {
-        return { success: false, message: 'Unauthorized' }
+        return { success: false, message: 'Unauthorized', project }
     }
     const json = formData.get('json')
     const parsed = parseAssetUpdates(json)
     if (parsed.success) {
         const updates = parsed.data
-        const result = await applyMetadataUpdates(updates)
+        const result = await applyMetadataUpdates({ project, updates })
         console.info('Saved assets: ', result)
         // Revalidate the console path to reflect changes
         revalidatePathsForAssets(updates)
         return {
             success: true,
             saved: true,
+            project,
         }
     } else {
         return {
             success: false,
             message: parsed.error.toString(),
+            project,
         }
     }
 }
