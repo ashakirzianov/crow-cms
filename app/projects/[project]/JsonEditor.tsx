@@ -12,7 +12,6 @@ export function JsonEditor({ project, initialJson }: {
     const [text, setText] = useState(initialJson)
     const [state, formAction, isPending] = useActionState(handleJsonEdit, {
         success: true,
-        project,
     })
     useEffect(() => {
         setText(initialJson)
@@ -20,8 +19,10 @@ export function JsonEditor({ project, initialJson }: {
 
     return <form action={formAction}>
         <header className="flex flex-col gap-4">
+            <input type="hidden" name="project" value={project} />
             <nav className="flex flex-row gap-4">
-                <Button type="submit" name="intent" value="save" disabled={isPending} text="Save" />
+                <Button type="submit" name="intent" value="create" disabled={isPending} text="Create" />
+                <Button type="submit" name="intent" value="update" disabled={isPending} text="Update" />
                 <CopyButton text={text} />
             </nav>
             {!state.success

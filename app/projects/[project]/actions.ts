@@ -1,8 +1,8 @@
 'use server'
 import { AssetMetadata, AssetMetadataUpdate, AssetKind, parseTagsString } from "@/shared/assets"
-import { applyMetadataUpdates, deleteAssetMetadata, getAssetMetadata } from "@/shared/metadataStore"
+import { applyMetadataUpdates, deleteAssetMetadata, getAssetMetadata, storeAssets } from "@/shared/metadataStore"
 import { isAuthorized } from "@/shared/auth"
-import { parseAssetUpdates } from "@/app/projects/[project]/common"
+import { parseAssetCreates, parseAssetUpdates } from "@/app/projects/[project]/common"
 import { uploadAssetFile } from "@/shared/fileStore"
 import { revalidatePath } from "next/cache"
 
@@ -156,33 +156,63 @@ export async function uploadFile({ project, formData }: { project: string, formD
 }
 
 export type HandleJsonEditState = {
-    project: string,
     success: boolean,
     message?: string,
     saved?: boolean,
 }
-export async function handleJsonEdit({ project }: HandleJsonEditState, formData: FormData): Promise<HandleJsonEditState> {
+export async function handleJsonEdit(_prevState: HandleJsonEditState, formData: FormData): Promise<HandleJsonEditState> {
+    const project = formData.get('project') as string
     if (!await isAuthorized(project)) {
-        return { success: false, message: 'Unauthorized', project }
+        return { success: false, message: 'Unauthorized' }
     }
+    const intent = formData.get('intent')
+    if (intent === 'create') {
+        return await handleJsonCreate(project, formData)
+    } else if (intent === 'update') {
+        return await handleJsonUpdate(project, formData)
+    } else {
+        return { success: false, message: 'Invalid intent' }
+    }
+}
+
+export async function handleJsonCreate(project: string, formData: FormData): Promise<HandleJsonEditState> {
     const json = formData.get('json')
-    const parsed = parseAssetUpdates(json)
+    const parsed = parseAssetCreates(json)
     if (parsed.success) {
-        const updates = parsed.data
-        const result = await applyMetadataUpdates({ project, updates })
-        console.info('Saved assets: ', result)
+        const assets = parsed.data
+        const result = await storeAssets({ project, assets })
+        console.info('Created assets: ', result)
         // Revalidate the console path to reflect changes
-        revalidatePathsForAssets(updates)
+        revalidatePathsForAssets(assets)
         return {
             success: true,
             saved: true,
-            project,
         }
     } else {
         return {
             success: false,
             message: parsed.error.toString(),
-            project,
+        }
+    }
+}
+
+export async function handleJsonUpdate(project: string, formData: FormData): Promise<HandleJsonEditState> {
+    const json = formData.get('json')
+    const parsed = parseAssetUpdates(json)
+    if (parsed.success) {
+        const updates = parsed.data
+        const result = await applyMetadataUpdates({ project, updates })
+        console.info('Updated assets: ', result)
+        // Revalidate the console path to reflect changes
+        revalidatePathsForAssets(updates)
+        return {
+            success: true,
+            saved: true,
+        }
+    } else {
+        return {
+            success: false,
+            message: parsed.error.toString(),
         }
     }
 }
