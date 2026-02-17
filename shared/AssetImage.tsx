@@ -1,5 +1,6 @@
 import Image from "next/image"
 import { AssetMetadata, assetAlt, assetHeight, assetSrc, assetWidth } from "./assets"
+import { originalsRoot } from "./href"
 
 export type AssetImageSize = 'medium' | 'full'
 
@@ -27,9 +28,10 @@ function getDimensionsForAsset(asset: AssetMetadata, _size: AssetImageSize): [nu
 
 export function AssetImage({ project, asset, size, style }: AssetImageProps) {
     const [width, height] = getDimensionsForAsset(asset, size)
+    const root = originalsRoot(project)
     return (
         <Image
-            src={assetSrc(asset, project)}
+            src={assetSrc(asset, root)}
             alt={assetAlt(asset)}
             width={width}
             height={height}

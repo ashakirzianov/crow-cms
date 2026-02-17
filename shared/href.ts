@@ -20,3 +20,7 @@ export function hrefForConsole({
         ? `/projects/${project}`
         : `/projects/${project}?${searchParams.toString()}`
 }
+
+export function originalsRoot(project: string): string {
+    return `https://${process.env.NEXT_PUBLIC_ASSETS_DOMAIN}/${project}/originals`
+}
