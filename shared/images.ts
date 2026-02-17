@@ -8,6 +8,7 @@ export type ProcessedImage = {
     height: number
     format: string
     originalName: string
+    newName?: string
 }
 
 /**
@@ -75,6 +76,88 @@ export async function processImage(file: File): Promise<{
                 height: finalHeight,
                 format: metadata.format,
                 originalName: file.name
+            }
+        }
+    } catch (error) {
+        console.error('Error processing image:', error)
+        return {
+            success: false,
+            message: error instanceof Error
+                ? `Image processing error: ${error.message}`
+                : 'Unknown image processing error'
+        }
+    }
+}
+
+export async function createImageVariant({
+    file, width, quality,
+}: {
+    width?: number,
+    quality?: number,
+    file: File,
+}): Promise<{
+    success: boolean;
+    message: string;
+    image?: ProcessedImage;
+}> {
+    try {
+        // Check if the file is an image based on MIME type
+        if (!file.type.startsWith('image/')) {
+            return {
+                success: false,
+                message: 'File is not an image. Only image files are supported.'
+            }
+        }
+
+        // Convert file to buffer
+        const arrayBuffer = await file.arrayBuffer()
+        const buffer = Buffer.from(arrayBuffer)
+
+        // Use sharp to process the image
+        let image = sharp(buffer)
+            .rotate() // Auto-rotate based on EXIF data
+
+        // Get image metadata
+        const metadata = await image.metadata()
+
+        if (!metadata.width || !metadata.height || !metadata.format) {
+            return {
+                success: false,
+                message: 'Could not determine image dimensions or format'
+            }
+        }
+
+        let finalWidth = metadata.width
+        let finalHeight = metadata.height
+
+        // Resize image if width exceeds maximum
+        if (width !== undefined && metadata.width !== width) {
+            // Calculate new height to maintain aspect ratio
+            const factor = width / metadata.width
+            finalWidth = Math.round(metadata.width * factor)
+            finalHeight = Math.round(metadata.height * factor)
+
+            // Resize the image
+            image = await image
+                .resize(finalWidth, finalHeight, { fit: 'inside' })
+        }
+
+        const imageBuffer = await image
+            .webp({ quality: quality ?? 100 })
+            .toBuffer()
+
+        // Convert to standard Buffer type to avoid type issues
+        const processedBuffer = Buffer.from(imageBuffer)
+        return {
+            success: true,
+            message: 'Image processed successfully',
+            image: {
+                buffer: processedBuffer,
+                width: finalWidth,
+                height: finalHeight,
+                format: metadata.format,
+                originalName: file.name,
+                newName: `${file.name}.webp`
             }
         }
     } catch (error) {
