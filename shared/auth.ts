@@ -1,9 +1,34 @@
 'use server'
 import { cookies } from "next/headers"
 import crypto from "crypto"
+import { NextRequest } from "next/server"
 
-const authorizations: Record<string, string[]> = {
-    alikro: ['alikro', 'ashakirzianov'],
+type ProjectData = {
+    users: string[],
+    secret: string,
+}
+const authorizations: Record<string, ProjectData> = {
+    alikro: {
+        users: ['alikro', 'ashakirzianov'],
+        secret: process.env.ALIKRO_AUTH_SECRET ?? 'alikro',
+    },
+}
+
+export async function isApiAuthorized(request: NextRequest, project: string): Promise<boolean> {
+    const projectData = authorizations[project]
+    if (!projectData) {
+        console.warn(`No authorization config found for project "${project}", denying access by default`)
+        return false
+    }
+
+    const header = request.headers.get("Authorization")
+    if (!header || !header.startsWith("Bearer ")) {
+        return false
+    }
+
+    const token = header.substring("Bearer ".length)
+    const expectedToken = projectData.secret
+    return token === expectedToken
 }
 
 export async function isAuthorized(project: string) {
@@ -11,12 +36,12 @@ export async function isAuthorized(project: string) {
     if (username === null) {
         return false
     }
-    const authorizedUsers = authorizations[project]
-    if (!authorizedUsers) {
+    const projectData = authorizations[project]
+    if (!projectData) {
         console.warn(`No authorization config found for project "${project}", denying access by default`)
         return false
     }
-    return authorizedUsers.includes(username)
+    return projectData.users.includes(username)
 }
 
 async function currentUsername() {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { isAuthorized } from "@/shared/auth"
 import { getAssetMetadata } from "@/shared/metadataStore"
 import { AssetMetadata } from "@/shared/assets"
+import { isApiAuthorized } from "@/shared/auth"
 
 export type GetResponse = AssetMetadata
 export async function GET(
@@ -9,7 +9,7 @@ export async function GET(
     { params }: { params: Promise<{ project: string, assetId: string }> },
 ) {
     const { project, assetId } = await params
-    if (!await isAuthorized(project) && false) {
+    if (!await isApiAuthorized(request, project)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
