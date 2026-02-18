@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAssetMetadata } from "@/shared/metadataStore"
-import { requestVariant } from "@/shared/fileStore"
+import { requestVariant, VARIANT_LOCKED_MESSAGE } from "@/shared/fileStore"
 import { downloadFromStorage } from "@/shared/blobStore"
 
 export async function GET(
@@ -19,7 +19,7 @@ export async function GET(
 
     const result = await requestVariant({ fileName: asset.fileName, project, width, quality })
     if (!result.success) {
-        if (result.locked) {
+        if (result.message === VARIANT_LOCKED_MESSAGE) {
             console.info(`Variant for asset "${assetId}" is currently being generated. Client should retry after some time.`)
             return new NextResponse(null, {
                 status: 404,
@@ -33,12 +33,13 @@ export async function GET(
         return NextResponse.json({ error: "Failed to generate variant" }, { status: 500 })
     }
 
-    const buffer = result.buffer
-        ? result.buffer
-        : await downloadFromStorage({ key: result.key })
-
+    let buffer = result.buffer
     if (!buffer) {
-        return NextResponse.json({ error: "Failed to retrieve variant" }, { status: 500 })
+        const downloadResult = await downloadFromStorage({ key: result.key })
+        if (!downloadResult.success) {
+            return NextResponse.json({ error: 'Failed to retrieve variant from storage' }, { status: 500 })
+        }
+        buffer = downloadResult.buffer
     }
 
     return new NextResponse(new Uint8Array(buffer), {

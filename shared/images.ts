@@ -1,4 +1,5 @@
 import sharp from 'sharp'
+import { Result } from './result'
 
 export type ProcessedImage = {
     buffer: Buffer
@@ -13,11 +14,9 @@ export type ProcessedImage = {
  * Stage 1: Process the image
  * Validates that the file is an image, checks dimensions, and resizes if needed
  */
-export async function processImageFile(file: File): Promise<{
-    success: boolean;
-    message: string;
-    image?: ProcessedImage;
-}> {
+export async function processImageFile(file: File): Promise<Result<{
+    image: ProcessedImage;
+}>> {
     try {
         // Check if the file is an image based on MIME type
         if (!file.type.startsWith('image/')) {

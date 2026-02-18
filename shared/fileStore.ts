@@ -2,8 +2,10 @@ import { AssetMetadata, generateAssetId, splitFileNameAndExtension } from './ass
 import { getAssetIds, storeAsset, acquireVariantLock, releaseVariantLock, isVariantLocked } from './metadataStore'
 import { processImageFile, createImageVariant, ProcessedImage, variantFileName } from './images'
 import { uploadToStorage, downloadFromStorage, existsInStorage } from './blobStore'
+import { Result } from './result'
 
 const UNPUBLISHED_KIND = 'unpublished'
+export const VARIANT_LOCKED_MESSAGE = 'Variant is currently being generated'
 
 export type UploadProgress = {
     fileName: string
@@ -19,17 +21,14 @@ export type UploadProgress = {
  * 2. Generate unique asset ID and upload to S3
  * 3. Create metadata record
  */
-export async function uploadAssetFile({ file, project }: { file: File, project: string }): Promise<{
-    success: boolean;
-    message: string;
-    fileName?: string;
-    url?: string;
-    assetId?: string;
-}> {
+export async function uploadAssetFile({ file, project }: { file: File, project: string }): Promise<Result<{
+    fileName: string;
+    assetId: string;
+}>> {
     try {
         // STAGE 1: Process the image
         const processResult = await processImageFile(file)
-        if (!processResult.success || !processResult.image) {
+        if (!processResult.success) {
             return processResult
         }
 
@@ -37,7 +36,7 @@ export async function uploadAssetFile({ file, project }: { file: File, project: 
 
         // STAGE 2: Generate unique asset ID and upload to S3
         const uploadResult = await uploadOriginalImageToS3WithUniqueId({ image, project })
-        if (!uploadResult.success || !uploadResult.fileName || !uploadResult.assetId) {
+        if (!uploadResult.success) {
             console.error('Upload failed:', uploadResult)
             return uploadResult
         }
@@ -61,8 +60,6 @@ export async function uploadAssetFile({ file, project }: { file: File, project: 
             return {
                 success: false,
                 message: `File uploaded to S3, but metadata creation failed: ${metadataResult.message}`,
-                fileName,
-                assetId
             }
         }
 
@@ -87,13 +84,10 @@ export async function requestVariant({ fileName, project, width, quality }: {
     project: string
     width?: number
     quality?: number
-}): Promise<{
-    success: boolean
-    message: string
-    key?: string
+}): Promise<Result<{
+    key: string
     buffer?: Buffer
-    locked?: boolean
-}> {
+}>> {
     const variantName = variantFileName({ originalName: fileName, width, quality })
     const variantKey = fullKeyForVariant({ fileName: variantName, project })
 
@@ -102,21 +96,21 @@ export async function requestVariant({ fileName, project, width, quality }: {
     }
 
     if (await isVariantLocked({ variantKey })) {
-        return { success: false, message: 'Variant is currently being generated', locked: true }
+        return { success: false, message: VARIANT_LOCKED_MESSAGE }
     }
 
     if (!await acquireVariantLock({ variantKey })) {
-        return { success: false, message: 'Variant is currently being generated', locked: true }
+        return { success: false, message: VARIANT_LOCKED_MESSAGE }
     }
 
     try {
         const originalKey = fullKeyForOriginal({ fileName, project })
-        const buffer = await downloadFromStorage({ key: originalKey })
-        if (!buffer) {
+        const downloadResult = await downloadFromStorage({ key: originalKey })
+        if (!downloadResult.success) {
             return { success: false, message: 'Original file not found in storage' }
         }
 
-        return await generateAndUploadVariant({ buffer, originalName: fileName, project, width, quality })
+        return await generateAndUploadVariant({ buffer: downloadResult.buffer, originalName: fileName, project, width, quality })
     } finally {
         await releaseVariantLock({ variantKey })
     }
@@ -128,12 +122,10 @@ export async function generateAndUploadVariant({ buffer, originalName, project, 
     project: string
     width?: number
     quality?: number
-}): Promise<{
-    success: boolean
-    message: string
-    key?: string
-    buffer?: Buffer
-}> {
+}): Promise<Result<{
+    key: string
+    buffer: Buffer
+}>> {
     const result = await createImageVariant({ buffer, originalName, width, quality })
     if (!result.success || !result.image) {
         return { success: false, message: result.message } as const
@@ -155,12 +147,10 @@ export async function generateAndUploadVariant({ buffer, originalName, project, 
 /**
  * Stage 2: Generate unique asset ID and upload to S3
  */
-async function uploadOriginalImageToS3WithUniqueId({ image, project }: { image: ProcessedImage, project: string }): Promise<{
-    success: boolean;
-    message: string;
-    fileName?: string;
-    assetId?: string;
-}> {
+async function uploadOriginalImageToS3WithUniqueId({ image, project }: { image: ProcessedImage, project: string }): Promise<Result<{
+    fileName: string;
+    assetId: string;
+}>> {
     try {
         // Get existing asset IDs to check for uniqueness
         const existingAssetIds = await getAssetIds({ project })
@@ -231,11 +221,9 @@ async function createAssetMetadata({ asset, project }: { asset: AssetMetadata, p
     }
 }
 
-async function uploadOriginalToStorage({ image, project }: { image: ProcessedImage, project: string }): Promise<{
-    success: boolean;
-    message: string;
-    key?: string;
-}> {
+async function uploadOriginalToStorage({ image, project }: { image: ProcessedImage, project: string }): Promise<Result<{
+    key: string;
+}>> {
     const key = fullKeyForOriginal({
         fileName: image.fileName,
         project,
@@ -258,11 +246,9 @@ async function uploadOriginalToStorage({ image, project }: { image: ProcessedIma
     }
 }
 
-async function uploadVariantToStorage({ image, project }: { image: ProcessedImage, project: string }): Promise<{
-    success: boolean;
-    message: string;
-    key?: string;
-}> {
+async function uploadVariantToStorage({ image, project }: { image: ProcessedImage, project: string }): Promise<Result<{
+    key: string;
+}>> {
     return uploadToStorage({
         key: fullKeyForVariant({ fileName: image.fileName, project }),
         buffer: image.buffer,

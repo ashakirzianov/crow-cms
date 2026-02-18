@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
+import { Result } from './result'
 
 const S3_CONFIG = {
     AWS_REGION: 'us-east-2',
@@ -20,19 +21,19 @@ export async function existsInStorage({ key }: { key: string }): Promise<boolean
     }
 }
 
-export async function downloadFromStorage({ key }: { key: string }): Promise<Buffer | undefined> {
+export async function downloadFromStorage({ key }: { key: string }): Promise<Result<{ buffer: Buffer }>> {
     const s3Client = getS3Client()
-    if (!s3Client) return undefined
+    if (!s3Client) return { success: false, message: 'S3 client not initialized. Check AWS credentials.' }
 
     const command = new GetObjectCommand({
         Bucket: S3_CONFIG.BUCKET_NAME,
         Key: key,
     })
     const response = await s3Client.send(command)
-    if (!response.Body) return undefined
+    if (!response.Body) return { success: false, message: 'File not found in S3' }
 
     const bytes = await response.Body.transformToByteArray()
-    return Buffer.from(bytes)
+    return { success: true, buffer: Buffer.from(bytes) }
 }
 
 /**
@@ -48,11 +49,9 @@ export async function uploadToStorage({
     buffer: Buffer;
     contentType: string;
     cacheControl?: string;
-}): Promise<{
-    success: boolean;
-    message: string;
-    key?: string;
-}> {
+}): Promise<Result<{
+    key: string;
+}>> {
     try {
         const s3Client = getS3Client()
         if (!s3Client) {

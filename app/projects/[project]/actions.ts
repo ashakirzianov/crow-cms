@@ -5,6 +5,7 @@ import { isAuthorized } from "@/shared/auth"
 import { parseAssetCreates, parseAssetUpdates } from "@/app/projects/[project]/common"
 import { uploadAssetFile } from "@/shared/fileStore"
 import { revalidatePath } from "next/cache"
+import { Result } from "@/shared/result"
 
 export async function updateAsset({
     project, id, formData,
@@ -110,13 +111,10 @@ export async function deleteAsset({
 }
 
 // Server action for uploading files
-export async function uploadFile({ project, formData }: { project: string, formData: FormData }): Promise<{
-    success: boolean;
-    message: string;
-    fileName?: string;
-    url?: string;
-    assetId?: string;
-}> {
+export async function uploadFile({ project, formData }: { project: string, formData: FormData }): Promise<Result<{
+    fileName: string;
+    assetId: string;
+}>> {
     try {
         if (!await isAuthorized(project)) {
             return { success: false, message: 'Unauthorized' }
