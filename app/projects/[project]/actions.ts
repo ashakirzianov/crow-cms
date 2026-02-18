@@ -1,21 +1,25 @@
 'use server'
 import { AssetMetadata, AssetMetadataUpdate, AssetKind, parseTagsString } from "@/shared/assets"
-import { applyMetadataUpdates, deleteAssetMetadata, getAssetMetadata } from "@/shared/metadataStore"
-import { isAuthenticated } from "@/shared/auth"
-import { parseAssetUpdates } from "@/app/console/common"
+import { applyMetadataUpdates, deleteAssetMetadata, getAssetMetadata, storeAssets } from "@/shared/metadataStore"
+import { isAuthorized } from "@/shared/auth"
+import { parseAssetCreates, parseAssetUpdates } from "@/app/projects/[project]/common"
 import { uploadAssetFile } from "@/shared/fileStore"
 import { revalidatePath } from "next/cache"
+import { Result } from "@/shared/result"
 
-export async function updateAsset(
+export async function updateAsset({
+    project, id, formData,
+}: {
+    project: string,
     id: string,
-    formData: FormData
-): Promise<{ success: boolean, message: string, asset?: AssetMetadata }> {
+    formData: FormData,
+}): Promise<{ success: boolean, message: string, asset?: AssetMetadata }> {
     try {
-        if (!await isAuthenticated()) {
+        if (!await isAuthorized(project)) {
             return { success: false, message: 'Unauthorized' }
         }
         // Get current asset data
-        const asset = await getAssetMetadata(id)
+        const asset = await getAssetMetadata({ id, project })
         if (!asset) {
             return { success: false, message: `Asset with ID "${id}" not found` }
         }
@@ -47,10 +51,10 @@ export async function updateAsset(
         update.tags = parseTagsString(tagsString)
 
         // Apply update
-        await applyMetadataUpdates([update])
+        await applyMetadataUpdates({ project, updates: [update] })
 
         // Get updated asset
-        const updatedAsset = await getAssetMetadata(id)
+        const updatedAsset = await getAssetMetadata({ id, project })
 
         // Revalidate the console path to reflect changes
         revalidatePathsForAssets([update])
@@ -69,21 +73,24 @@ export async function updateAsset(
     }
 }
 
-export async function deleteAsset(
+export async function deleteAsset({
+    project, id
+}: {
+    project: string,
     id: string
-): Promise<{ success: boolean, message: string }> {
+}): Promise<{ success: boolean, message: string }> {
     try {
-        if (!await isAuthenticated()) {
+        if (!await isAuthorized(project)) {
             return { success: false, message: 'Unauthorized' }
         }
         // Get current asset data to verify it exists
-        const asset = await getAssetMetadata(id)
+        const asset = await getAssetMetadata({ id, project })
         if (!asset) {
             return { success: false, message: `Asset with ID "${id}" not found` }
         }
 
         // Delete the asset from metadata store using the dedicated function
-        const result = await deleteAssetMetadata(id)
+        const result = await deleteAssetMetadata({ id, project })
 
         // Revalidate the console path to reflect changes
         if (result) {
@@ -104,15 +111,12 @@ export async function deleteAsset(
 }
 
 // Server action for uploading files
-export async function uploadFile(formData: FormData): Promise<{
-    success: boolean;
-    message: string;
-    fileName?: string;
-    url?: string;
-    assetId?: string;
-}> {
+export async function uploadFile({ project, formData }: { project: string, formData: FormData }): Promise<Result<{
+    fileName: string;
+    assetId: string;
+}>> {
     try {
-        if (!await isAuthenticated()) {
+        if (!await isAuthorized(project)) {
             return { success: false, message: 'Unauthorized' }
         }
         // Get the file from the form data
@@ -130,7 +134,7 @@ export async function uploadFile(formData: FormData): Promise<{
         // 2. Generates a unique asset ID based on filename
         // 3. Uploads to S3
         // 4. Creates metadata record
-        const result = await uploadAssetFile(file)
+        const result = await uploadAssetFile({ file, project })
 
         // Revalidate the console path to reflect the new asset
         if (result.success && result.assetId) {
@@ -154,16 +158,49 @@ export type HandleJsonEditState = {
     message?: string,
     saved?: boolean,
 }
-export async function handleJsonEdit(prevState: HandleJsonEditState, formData: FormData): Promise<HandleJsonEditState> {
-    if (await isAuthenticated()) {
+export async function handleJsonEdit(_prevState: HandleJsonEditState, formData: FormData): Promise<HandleJsonEditState> {
+    const project = formData.get('project') as string
+    if (!await isAuthorized(project)) {
         return { success: false, message: 'Unauthorized' }
     }
+    const intent = formData.get('intent')
+    if (intent === 'create') {
+        return await handleJsonCreate(project, formData)
+    } else if (intent === 'update') {
+        return await handleJsonUpdate(project, formData)
+    } else {
+        return { success: false, message: 'Invalid intent' }
+    }
+}
+
+export async function handleJsonCreate(project: string, formData: FormData): Promise<HandleJsonEditState> {
+    const json = formData.get('json')
+    const parsed = parseAssetCreates(json)
+    if (parsed.success) {
+        const assets = parsed.data
+        const result = await storeAssets({ project, assets })
+        console.info('Created assets: ', result)
+        // Revalidate the console path to reflect changes
+        revalidatePathsForAssets(assets)
+        return {
+            success: true,
+            saved: true,
+        }
+    } else {
+        return {
+            success: false,
+            message: parsed.error.toString(),
+        }
+    }
+}
+
+export async function handleJsonUpdate(project: string, formData: FormData): Promise<HandleJsonEditState> {
     const json = formData.get('json')
     const parsed = parseAssetUpdates(json)
     if (parsed.success) {
         const updates = parsed.data
-        const result = await applyMetadataUpdates(updates)
-        console.info('Saved assets: ', result)
+        const result = await applyMetadataUpdates({ project, updates })
+        console.info('Updated assets: ', result)
         // Revalidate the console path to reflect changes
         revalidatePathsForAssets(updates)
         return {

@@ -1,62 +1,125 @@
 'use server'
 import { cookies } from "next/headers"
 import crypto from "crypto"
+import { NextRequest } from "next/server"
 
-export async function isAuthenticated() {
+type ProjectData = {
+    users: string[],
+    secret: string,
+}
+const authorizations: Record<string, ProjectData> = {
+    alikro: {
+        users: ['alikro', 'ashakirzianov'],
+        secret: process.env.ALIKRO_SECRET_KEY ?? 'alikro',
+    },
+}
+
+export async function isApiAuthorized(request: NextRequest, project: string): Promise<boolean> {
+    const projectData = authorizations[project]
+    if (!projectData) {
+        console.warn(`No authorization config found for project "${project}", denying access by default`)
+        return false
+    }
+
+    const header = request.headers.get("Authorization")
+    if (!header || !header.startsWith("Bearer ")) {
+        return false
+    }
+
+    const token = header.substring("Bearer ".length)
+    const expectedToken = projectData.secret
+    return token === expectedToken
+}
+
+export async function isAuthorized(project: string) {
+    const username = await currentUsername()
+    if (username === null) {
+        return false
+    }
+    const projectData = authorizations[project]
+    if (!projectData) {
+        console.warn(`No authorization config found for project "${project}", denying access by default`)
+        return false
+    }
+    return projectData.users.includes(username)
+}
+
+async function currentUsername() {
     const secret = process.env.AUTH_SECRET
     if (!secret) {
         console.error('No auth secret provided')
-        return false
+        return null
     }
     const cookieStore = await cookies()
     const authCookie = cookieStore.get('auth')
     if (authCookie) {
-        return validateAuthToken(authCookie.value, secret)
+        const validationResult = validateAuthToken(authCookie.value, secret)
+        if (validationResult.success) {
+            return validationResult.username
+        }
     }
-    return false
+    return null
 }
 
-export async function authenticate(password: string) {
+export async function authenticate(username: string, password: string) {
     const secret = process.env.AUTH_SECRET
     if (!secret) {
         console.error('No auth secret provided')
         return false
     }
-    if (validatePassword(password, secret)) {
+    if (validatePassword(username, password, secret)) {
         const cookieStore = await cookies()
-        const value = generateAuthToken(secret)
+        const value = generateAuthToken(username, secret)
         cookieStore.set({
             name: 'auth',
             value,
             httpOnly: true,
         })
+    } else {
+        return false
     }
 
 }
 
-export async function generateNewPassword() {
+export async function generateNewPassword(username: string) {
     const secret = process.env.AUTH_SECRET
     if (!secret) {
         return undefined
     }
-    const password = generatePassword(secret)
+    const password = generatePassword(username, secret)
     return password
 }
 
-function validatePassword(password: string, server_secret: string) {
-    return validateToken(password, 'password', 16, server_secret)
+function validatePassword(username: string, password: string, server_secret: string) {
+    return validateToken(password, username, 16, server_secret)
 }
 
-function generatePassword(server_secret: string) {
-    return generateToken('password', 16, server_secret)
+function generatePassword(username: string, server_secret: string) {
+    return generateToken(username, 16, server_secret)
 }
 
 function validateAuthToken(token: string, server_secret: string) {
-    return validateToken(token, 'alikro', 32, server_secret)
+    const [username, tokenPart] = token.split(':')
+    if (tokenPart === undefined) {
+        return {
+            success: false, message: 'Invalid token format',
+        } as const
+    }
+    const isValid = validateToken(tokenPart, username, 32, server_secret)
+    if (!isValid) {
+        return {
+            success: false, message: 'Invalid token',
+        } as const
+    }
+    return {
+        success: true,
+        username,
+    } as const
 }
 
-function generateAuthToken(server_secret: string) {
-    return generateToken('alikro', 32, server_secret)
+function generateAuthToken(username: string, server_secret: string) {
+    const tokenPart = generateToken(username, 32, server_secret)
+    return `${username}:${tokenPart}`
 }
 
 function generateToken(message: string, length: number, server_secret: string): string {

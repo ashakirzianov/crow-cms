@@ -19,8 +19,8 @@ export type AssetMetadataUpdate = Omit<
     'fileName' | 'width' | 'height' | 'uploaded'
 >
 
-export type AssetKind = 'drawing' | 'illustration' | 'painting' | 'poster' | 'hidden' | 'collage' | 'tattoo'
-export type AssetTag = 'selfportrait' | 'favorite' | 'secondary'
+export type AssetKind = string
+export type AssetTag = string
 export type AssetQuery = null | string | AssetQuery[] | {
     kind: 'or',
     queries: AssetQuery[],
@@ -42,8 +42,8 @@ export function assetMetadataUpdate(asset: AssetMetadata): AssetMetadataUpdate {
     return update
 }
 
-export function assetSrc(asset: AssetMetadata) {
-    return `https://${process.env.NEXT_PUBLIC_ASSETS_DOMAIN}/${asset.fileName}`
+export function assetSrc(asset: AssetMetadata, root: string): string {
+    return `${root}/${asset.fileName}`
 }
 
 export function assetAlt(asset: AssetMetadata) {

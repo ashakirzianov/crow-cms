@@ -1,9 +1,11 @@
 import Image from "next/image"
 import { AssetMetadata, assetAlt, assetHeight, assetSrc, assetWidth } from "./assets"
+import { originalsRoot } from "./href"
 
 export type AssetImageSize = 'medium' | 'full'
 
 interface AssetImageProps {
+    project: string
     asset: AssetMetadata
     size: AssetImageSize
     style?: React.CSSProperties
@@ -24,11 +26,12 @@ function getDimensionsForAsset(asset: AssetMetadata, _size: AssetImageSize): [nu
     return [width, height]
 }
 
-export function AssetImage({ asset, size, style }: AssetImageProps) {
+export function AssetImage({ project, asset, size, style }: AssetImageProps) {
     const [width, height] = getDimensionsForAsset(asset, size)
+    const root = originalsRoot(project)
     return (
         <Image
-            src={assetSrc(asset)}
+            src={assetSrc(asset, root)}
             alt={assetAlt(asset)}
             width={width}
             height={height}

@@ -6,12 +6,13 @@ import { hrefForConsole } from "@/shared/href"
 
 // Component for the asset grid
 export function ConsoleGrid({
-    filter, assets, selectedAssetId, shallow,
+    filter, assets, selectedAssetId, shallow, project,
 }: {
     filter: string,
     assets: AssetMetadata[],
     selectedAssetId: string | undefined,
     shallow?: boolean,
+    project: string,
 }) {
     return (<>
         <section className="text-accent">
@@ -21,6 +22,7 @@ export function ConsoleGrid({
             {assets.map((asset) => (
                 <AssetCard
                     key={asset.id}
+                    project={project}
                     filter={filter}
                     asset={asset}
                     isSelected={asset.id === selectedAssetId}
@@ -48,8 +50,9 @@ function AssetCardTags({ tags }: { tags?: string[] }) {
 
 // Component for a single asset card
 function AssetCard({
-    asset, isSelected, shallow, filter,
+    project, asset, isSelected, shallow, filter,
 }: {
+    project: string,
     asset: AssetMetadata,
     isSelected: boolean,
     shallow?: boolean,
@@ -57,6 +60,7 @@ function AssetCard({
 }) {
     return (
         <Link href={hrefForConsole({
+            project,
             filter,
             action: 'edit',
             assetId: asset.id,
@@ -70,6 +74,7 @@ function AssetCard({
                 <div className="h-32 flex items-center justify-center">
                     <div className="h-full relative w-full">
                         <AssetImage
+                            project={project}
                             asset={asset}
                             size="medium"
                             style={{

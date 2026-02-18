@@ -2,8 +2,9 @@ import { NavigationLink } from "@/shared/Atoms"
 import { hrefForConsole } from "@/shared/href"
 
 export default function ConsoleHeader({
-    kinds, tags, selectedFilter, selectedAction, shallow,
+    project, kinds, tags, selectedFilter, selectedAction, shallow,
 }: {
+    project: string,
     kinds: string[],
     tags: string[],
     selectedFilter: string,
@@ -15,7 +16,7 @@ export default function ConsoleHeader({
         <nav className="flex flex-row flex-wrap text-accent text-2xl sm:text-5xl whitespace-nowrap pb-2">
             <NavigationLink
                 href="/"
-                title="Alikro"
+                title={project}
                 shallow={shallow}
                 last
             />{'//'}&nbsp;
@@ -23,7 +24,7 @@ export default function ConsoleHeader({
             {filters.map((filter, index) => (
                 <NavigationLink
                     key={filter}
-                    href={hrefForConsole({ filter })}
+                    href={hrefForConsole({ project, filter })}
                     title={filter}
                     selected={selectedFilter === filter}
                     shallow={shallow}
@@ -33,6 +34,7 @@ export default function ConsoleHeader({
             &nbsp;//&nbsp;
             <NavigationLink
                 href={hrefForConsole({
+                    project,
                     filter: selectedFilter,
                     action: 'upload',
                 })}
@@ -44,7 +46,7 @@ export default function ConsoleHeader({
             &nbsp;//&nbsp;
             <NavigationLink
                 href={hrefForConsole({
-                    filter: selectedFilter,
+                    project,
                     action: 'json',
                 })}
                 title="Json"
@@ -55,6 +57,7 @@ export default function ConsoleHeader({
             &nbsp;//&nbsp;
             <NavigationLink
                 href={hrefForConsole({
+                    project,
                     filter: selectedFilter,
                     action: 'workers',
                 })}
