@@ -51,6 +51,7 @@ export async function uploadToStorage({
 }): Promise<{
     success: boolean;
     message: string;
+    key?: string;
 }> {
     try {
         const s3Client = getS3Client()
@@ -72,7 +73,8 @@ export async function uploadToStorage({
 
         return {
             success: true,
-            message: 'File uploaded successfully to S3'
+            message: 'File uploaded successfully to S3',
+            key,
         }
     } catch (error) {
         console.error('Error in uploadToStorage:', error)

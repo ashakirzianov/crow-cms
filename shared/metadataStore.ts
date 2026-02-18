@@ -112,6 +112,28 @@ export async function cleanMetadataStore({ project }: { project: string }) {
     invalidateCache()
 }
 
+// Variant generation locks
+
+const LOCK_TTL_SECONDS = 60
+
+function variantLockKey(variantKey: string) {
+    return `crow-cms:lock:${variantKey}`
+}
+
+export async function acquireVariantLock({ variantKey }: { variantKey: string }): Promise<boolean> {
+    const result = await redis.set(variantLockKey(variantKey), '1', { nx: true, ex: LOCK_TTL_SECONDS })
+    return result === 'OK'
+}
+
+export async function releaseVariantLock({ variantKey }: { variantKey: string }): Promise<void> {
+    await redis.del(variantLockKey(variantKey))
+}
+
+export async function isVariantLocked({ variantKey }: { variantKey: string }): Promise<boolean> {
+    const result = await redis.exists(variantLockKey(variantKey))
+    return result === 1
+}
+
 type AssetsRecord = {
     [key: string]: AssetMetadataValue,
 }

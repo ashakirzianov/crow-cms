@@ -19,6 +19,13 @@ export async function GET(
 
     const result = await requestVariant({ fileName: asset.fileName, project, width, quality })
     if (!result.success) {
+        if (result.locked) {
+            console.info(`Variant for asset "${assetId}" is currently being generated. Client should retry after some time.`)
+            return new NextResponse(null, {
+                status: 404,
+                headers: { 'Cache-Control': 'public, max-age=1' },
+            })
+        }
         return NextResponse.json({ error: result.message }, { status: 500 })
     }
 
@@ -26,7 +33,7 @@ export async function GET(
         return NextResponse.json({ error: "Failed to generate variant" }, { status: 500 })
     }
 
-    const buffer = 'buffer' in result && result.buffer
+    const buffer = result.buffer
         ? result.buffer
         : await downloadFromStorage({ key: result.key })
 

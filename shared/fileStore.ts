@@ -1,5 +1,5 @@
 import { AssetMetadata, generateAssetId, splitFileNameAndExtension } from './assets'
-import { getAssetIds, storeAsset } from './metadataStore'
+import { getAssetIds, storeAsset, acquireVariantLock, releaseVariantLock, isVariantLocked } from './metadataStore'
 import { processImageFile, createImageVariant, ProcessedImage, variantFileName } from './images'
 import { uploadToStorage, downloadFromStorage, existsInStorage } from './blobStore'
 
@@ -92,21 +92,34 @@ export async function requestVariant({ fileName, project, width, quality }: {
     message: string
     key?: string
     buffer?: Buffer
+    locked?: boolean
 }> {
     const variantName = variantFileName({ originalName: fileName, width, quality })
     const variantKey = fullKeyForVariant({ fileName: variantName, project })
 
     if (await existsInStorage({ key: variantKey })) {
-        return { success: true, message: 'Variant already exists', key: variantKey } as const
+        return { success: true, message: 'Variant already exists', key: variantKey }
     }
 
-    const originalKey = fullKeyForOriginal({ fileName, project })
-    const buffer = await downloadFromStorage({ key: originalKey })
-    if (!buffer) {
-        return { success: false, message: 'Original file not found in storage' } as const
+    if (await isVariantLocked({ variantKey })) {
+        return { success: false, message: 'Variant is currently being generated', locked: true }
     }
 
-    return generateAndUploadVariant({ buffer, originalName: fileName, project, width, quality })
+    if (!await acquireVariantLock({ variantKey })) {
+        return { success: false, message: 'Variant is currently being generated', locked: true }
+    }
+
+    try {
+        const originalKey = fullKeyForOriginal({ fileName, project })
+        const buffer = await downloadFromStorage({ key: originalKey })
+        if (!buffer) {
+            return { success: false, message: 'Original file not found in storage' }
+        }
+
+        return await generateAndUploadVariant({ buffer, originalName: fileName, project, width, quality })
+    } finally {
+        await releaseVariantLock({ variantKey })
+    }
 }
 
 export async function generateAndUploadVariant({ buffer, originalName, project, width, quality }: {
