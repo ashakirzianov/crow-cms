@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requestVariant, VARIANT_LOCKED_MESSAGE } from "@/shared/fileStore"
-import { parseVariantFileName } from "@/shared/images"
+import { parseVariantFileName } from "@/shared/variants"
 
 export async function GET(
     request: NextRequest,

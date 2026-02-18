@@ -5,6 +5,17 @@ import { AssetKind, AssetMetadata, AssetTag } from "@/shared/assets"
 import { useState, useTransition, useEffect, useRef } from "react"
 import { Button } from "@/shared/Atoms"
 import { deleteAsset, updateAsset } from "@/app/projects/[project]/actions"
+import Link from "next/link"
+
+type ProjectProps = {
+  makeExternalLink?(assetId: string): string
+}
+
+const projectProps: Record<string, ProjectProps> = {
+  alikro: {
+    makeExternalLink: (assetId: string) => `https://alikro.art/all/${assetId}`
+  }
+}
 
 export default function AssetEditor({
   project,
@@ -124,6 +135,8 @@ export default function AssetEditor({
       }
     })
   }
+
+  const makeExternalLink = projectProps[project]?.makeExternalLink
 
   return (
     <div className="w-full border-l p-4 ml-4">
@@ -299,6 +312,9 @@ export default function AssetEditor({
         </div>
 
         <div className="flex mt-4 space-x-2">
+          {makeExternalLink && (<Link href={makeExternalLink(asset.id)} target="_blank" className="text-accent hover:underline flex items-center">
+            View externally
+          </Link>)}
           <Button
             type="button"
             onClick={handleMoveToTop}

@@ -1,6 +1,6 @@
 import Image from "next/image"
-import { AssetMetadata, assetAlt, assetHeight, assetSrc, assetWidth } from "./assets"
-import { originalsRoot } from "./href"
+import { AssetMetadata, assetAlt, assetFileName, assetHeight, assetWidth } from "./assets"
+import { variantSrc, variantFileName } from "./variants"
 
 export type AssetImageSize = 'medium' | 'full'
 
@@ -28,10 +28,16 @@ function getDimensionsForAsset(asset: AssetMetadata, _size: AssetImageSize): [nu
 
 export function AssetImage({ project, asset, size, style }: AssetImageProps) {
     const [width, height] = getDimensionsForAsset(asset, size)
-    const root = originalsRoot(project)
     return (
         <Image
-            src={assetSrc(asset, root)}
+            src={variantSrc({
+                variantName: variantFileName({
+                    originalName: assetFileName(asset),
+                    format: 'webp',
+                }),
+                project,
+            })}
+            unoptimized
             alt={assetAlt(asset)}
             width={width}
             height={height}
