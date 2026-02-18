@@ -14,6 +14,16 @@ const authorizations: Record<string, ProjectData> = {
     },
 }
 
+export async function isVariantRequestAuthorized(request: NextRequest, _project: string): Promise<boolean> {
+    const variantSecret = process.env.VARIANTS_SECRET
+    if (!variantSecret) {
+        return true
+    } else {
+        const xInternalToken = request.headers.get("X-Internal-Token")
+        return xInternalToken === variantSecret
+    }
+}
+
 export async function isApiAuthorized(request: NextRequest, project: string): Promise<boolean> {
     const projectData = authorizations[project]
     if (!projectData) {
