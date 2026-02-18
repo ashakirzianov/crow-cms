@@ -1,7 +1,7 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { generateAssetId, splitFileNameAndExtension, AssetMetadata } from './assets'
 import { getAssetNames, storeAsset } from './metadataStore'
-import { processImageFile } from './images'
+import { processImageFile, createImageVariant } from './images'
 
 const UNPUBLISHED_KIND = 'unpublished'
 
@@ -111,7 +111,28 @@ export async function downloadOriginalFromS3({ assetId, project }: { assetId: st
     return Buffer.from(bytes)
 }
 
-export async function uploadVariantToS3({ buffer, name, project }: {
+export async function generateAndUploadVariant({ buffer, name, project, width, quality }: {
+    buffer: Buffer
+    name: string
+    project: string
+    width?: number
+    quality?: number
+}): Promise<{ success: boolean; message: string; variantKey?: string }> {
+    const result = await createImageVariant({ buffer, name, width, quality })
+    if (!result.success || !result.image?.newName) {
+        return { success: false, message: result.message }
+    }
+
+    const upload = await uploadVariantToS3({
+        buffer: result.image.buffer,
+        name: result.image.newName,
+        project,
+    })
+    if (!upload.success) return upload
+    return { success: true, message: 'Variant generated and uploaded', variantKey: upload.key }
+}
+
+async function uploadVariantToS3({ buffer, name, project }: {
     buffer: Buffer
     name: string
     project: string
