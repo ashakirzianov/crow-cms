@@ -1,7 +1,7 @@
 import { AssetMetadata, generateAssetId, splitFileNameAndExtension } from './assets'
 import { getAssetIds, storeAsset } from './metadataStore'
-import { processImageFile, createImageVariant, ProcessedImage } from './images'
-import { uploadToStorage } from './blobStore'
+import { processImageFile, createImageVariant, ProcessedImage, variantFileName } from './images'
+import { uploadToStorage, downloadFromStorage, existsInStorage } from './blobStore'
 
 const UNPUBLISHED_KIND = 'unpublished'
 
@@ -82,16 +82,38 @@ export async function uploadAssetFile({ file, project }: { file: File, project: 
     }
 }
 
-export async function generateAndUploadVariant({ buffer, name, project, width, quality }: {
-    buffer: Buffer
-    name: string
+export async function requestVariant({ fileName, project, width, quality }: {
+    fileName: string
     project: string
     width?: number
     quality?: number
-}): Promise<{ success: boolean; message: string; variantKey?: string }> {
-    const result = await createImageVariant({ buffer, name, width, quality })
+}) {
+    const variantName = variantFileName({ originalName: fileName, width, quality })
+    const variantKey = fullKeyForVariant({ fileName: variantName, project })
+
+    if (await existsInStorage({ key: variantKey })) {
+        return { success: true, message: 'Variant already exists', variantKey } as const
+    }
+
+    const originalKey = fullKeyForOriginal({ fileName, project })
+    const buffer = await downloadFromStorage({ key: originalKey })
+    if (!buffer) {
+        return { success: false, message: 'Original file not found in storage' } as const
+    }
+
+    return generateAndUploadVariant({ buffer, originalName: fileName, project, width, quality })
+}
+
+export async function generateAndUploadVariant({ buffer, originalName, project, width, quality }: {
+    buffer: Buffer
+    originalName: string
+    project: string
+    width?: number
+    quality?: number
+}) {
+    const result = await createImageVariant({ buffer, originalName, width, quality })
     if (!result.success || !result.image) {
-        return { success: false, message: result.message }
+        return { success: false, message: result.message } as const
     }
 
     const upload = await uploadVariantToStorage({
@@ -99,7 +121,12 @@ export async function generateAndUploadVariant({ buffer, name, project, width, q
         project,
     })
     if (!upload.success) return upload
-    return { success: true, message: 'Variant generated and uploaded', variantKey: upload.key }
+    return {
+        success: true,
+        message: 'Variant generated and uploaded',
+        variantKey: upload.key,
+        buffer: result.image.buffer,
+    } as const
 }
 
 /**
@@ -214,7 +241,7 @@ async function uploadVariantToStorage({ image, project }: { image: ProcessedImag
     key?: string;
 }> {
     return uploadToStorage({
-        key: fullKeyForVariant({ name: image.fileName, project }),
+        key: fullKeyForVariant({ fileName: image.fileName, project }),
         buffer: image.buffer,
         contentType: image.contentType
     })
@@ -231,11 +258,11 @@ function fullKeyForOriginal({
 }
 
 function fullKeyForVariant({
-    name,
+    fileName,
     project,
 }: {
-    name: string
+    fileName: string
     project: string
 }) {
-    return `${project}/variants/${name}`
+    return `${project}/variants/${fileName}`
 }

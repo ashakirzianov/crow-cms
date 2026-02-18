@@ -69,10 +69,10 @@ export async function processImageFile(file: File): Promise<{
 }
 
 export async function createImageVariant({
-    buffer, name, width, quality,
+    buffer, originalName, width, quality,
 }: {
     buffer: Buffer,
-    name: string,
+    originalName: string,
     width?: number,
     quality?: number,
 }): Promise<{
@@ -109,7 +109,7 @@ export async function createImageVariant({
         // Convert to standard Buffer type to avoid type issues
         const processedBuffer = Buffer.from(data)
 
-        const newName = `${name}@${width !== undefined ? `w${width}` : ''}${quality !== undefined ? `q${quality}` : ''}.webp`
+        const newName = variantFileName({ originalName, width, quality })
         return {
             success: true,
             message: 'Image processed successfully',
@@ -131,4 +131,12 @@ export async function createImageVariant({
                 : 'Unknown image processing error'
         }
     }
+}
+
+export function variantFileName({
+    originalName, width, quality,
+}: {
+    originalName: string, width?: number, quality?: number,
+}): string {
+    return `${originalName}@${width !== undefined ? `w${width}` : ''}${quality !== undefined ? `q${quality}` : ''}.webp`
 }
