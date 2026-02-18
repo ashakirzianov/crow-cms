@@ -1,28 +1,15 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
-import { generateAssetId, splitFileNameAndExtension, AssetMetadata } from './assets'
-import { getAssetNames, storeAsset } from './metadataStore'
-import { processImageFile, createImageVariant } from './images'
+import { AssetMetadata, generateAssetId, splitFileNameAndExtension } from './assets'
+import { getAssetIds, storeAsset } from './metadataStore'
+import { processImageFile, createImageVariant, ProcessedImage } from './images'
+import { uploadToStorage } from './blobStore'
 
 const UNPUBLISHED_KIND = 'unpublished'
-
-const S3_CONFIG = {
-    AWS_REGION: 'us-east-2',
-    BUCKET_NAME: 'crow-cms',
-}
 
 export type UploadProgress = {
     fileName: string
     progress: number // 0 to 100
     status: 'pending' | 'uploading' | 'success' | 'error'
     error?: string
-}
-
-export type ProcessedImage = {
-    buffer: Buffer
-    width: number
-    height: number
-    format: string
-    originalName: string
 }
 
 /**
@@ -95,22 +82,6 @@ export async function uploadAssetFile({ file, project }: { file: File, project: 
     }
 }
 
-export async function downloadOriginalFromS3({ assetId, project }: { assetId: string, project: string }): Promise<Buffer | undefined> {
-    const s3Client = getS3Client()
-    if (!s3Client) return undefined
-
-    const key = fullKeyForOriginal({ assetId, project })
-    const command = new GetObjectCommand({
-        Bucket: S3_CONFIG.BUCKET_NAME,
-        Key: key,
-    })
-    const response = await s3Client.send(command)
-    if (!response.Body) return undefined
-
-    const bytes = await response.Body.transformToByteArray()
-    return Buffer.from(bytes)
-}
-
 export async function generateAndUploadVariant({ buffer, name, project, width, quality }: {
     buffer: Buffer
     name: string
@@ -119,40 +90,16 @@ export async function generateAndUploadVariant({ buffer, name, project, width, q
     quality?: number
 }): Promise<{ success: boolean; message: string; variantKey?: string }> {
     const result = await createImageVariant({ buffer, name, width, quality })
-    if (!result.success || !result.image?.newName) {
+    if (!result.success || !result.image) {
         return { success: false, message: result.message }
     }
 
-    const upload = await uploadVariantToS3({
-        buffer: result.image.buffer,
-        name: result.image.newName,
+    const upload = await uploadVariantToStorage({
+        image: result.image,
         project,
     })
     if (!upload.success) return upload
     return { success: true, message: 'Variant generated and uploaded', variantKey: upload.key }
-}
-
-async function uploadVariantToS3({ buffer, name, project }: {
-    buffer: Buffer
-    name: string
-    project: string
-}): Promise<{ success: boolean; message: string; key?: string }> {
-    const s3Client = getS3Client()
-    if (!s3Client) {
-        return { success: false, message: 'S3 client not initialized. Check AWS credentials.' }
-    }
-
-    const key = fullKeyForVariant({ name, project })
-    const result = await uploadToS3Bucket({
-        s3Client,
-        bucketName: S3_CONFIG.BUCKET_NAME,
-        key,
-        buffer,
-        contentType: 'image/webp',
-    })
-
-    if (!result.success) return result
-    return { success: true, message: 'Variant uploaded', key }
 }
 
 /**
@@ -165,48 +112,29 @@ async function uploadOriginalImageToS3WithUniqueId({ image, project }: { image: 
     assetId?: string;
 }> {
     try {
-        // Create S3 client
-        const s3Client = getS3Client()
-        if (!s3Client) {
-            return {
-                success: false,
-                message: 'S3 client not initialized. Check AWS credentials.'
-            }
-        }
-
         // Get existing asset IDs to check for uniqueness
-        const existingAssetNames = await getAssetNames({ project })
-        const existingAssetIds = new Set(existingAssetNames)
+        const existingAssetIds = await getAssetIds({ project })
+        const existingAssetIdsSet = new Set(existingAssetIds)
 
-        const [baseFileName, fileExtension] = splitFileNameAndExtension(image.originalName)
-
+        image = { ...image }
+        const [baseFileName, fileExtension] = splitFileNameAndExtension(image.fileName)
 
         // Generate base asset ID from file name
-        let fileName = image.originalName
         let assetId = generateAssetId(baseFileName)
 
         // Ensure unique asset ID by adding numeric suffix if needed
         let suffix = 1
 
-        while (existingAssetIds.has(assetId)) {
-            fileName = `${baseFileName}-${suffix}.${fileExtension}`
-            assetId = generateAssetId(fileName)
+        while (existingAssetIdsSet.has(assetId)) {
+            image.fileName = `${baseFileName}-${suffix}.${fileExtension}`
+            assetId = generateAssetId(image.fileName)
             suffix++
         }
 
-        // Generate the file name with extension
-        const key = fullKeyForOriginal({
-            assetId,
-            project,
-        })
-
         // Upload to S3 bucket
-        const result = await uploadToS3Bucket({
-            s3Client,
-            bucketName: S3_CONFIG.BUCKET_NAME,
-            key,
-            buffer: image.buffer,
-            contentType: `image/${image.format}`,
+        const result = await uploadOriginalToStorage({
+            image,
+            project,
         })
 
         if (!result.success) {
@@ -217,7 +145,7 @@ async function uploadOriginalImageToS3WithUniqueId({ image, project }: { image: 
         return {
             success: true,
             message: 'File uploaded successfully to S3',
-            fileName: key,
+            fileName: image.fileName,
             assetId,
         }
     } catch (error) {
@@ -253,83 +181,53 @@ async function createAssetMetadata({ asset, project }: { asset: AssetMetadata, p
     }
 }
 
-/**
- * Core utility for uploading a buffer to an S3 bucket
- */
-async function uploadToS3Bucket({
-    s3Client,
-    bucketName,
-    key,
-    buffer,
-    contentType,
-    cacheControl = 'max-age=31536000', // 1 year caching by default
-}: {
-    s3Client: S3Client;
-    bucketName: string;
-    key: string;
-    buffer: Buffer;
-    contentType: string;
-    cacheControl?: string;
-}): Promise<{
+async function uploadOriginalToStorage({ image, project }: { image: ProcessedImage, project: string }): Promise<{
     success: boolean;
     message: string;
+    key?: string;
 }> {
-    try {
-        // Create upload command
-        const command = new PutObjectCommand({
-            Bucket: bucketName,
-            Key: key,
-            Body: buffer,
-            ContentType: contentType,
-            CacheControl: cacheControl,
-        })
+    const key = fullKeyForOriginal({
+        fileName: image.fileName,
+        project,
+    })
 
-        // Execute upload
-        await s3Client.send(command)
+    const result = await uploadToStorage({
+        key,
+        buffer: image.buffer,
+        contentType: image.contentType,
+    })
 
-        return {
-            success: true,
-            message: 'File uploaded successfully to S3'
-        }
-    } catch (error) {
-        console.error('Error in uploadToS3Bucket:', error)
-        return {
-            success: false,
-            message: error instanceof Error ? `S3 upload error: ${error.message}` : 'Unknown S3 error'
-        }
+    if (!result.success) {
+        return result
+    }
+
+    return {
+        success: true,
+        message: 'File uploaded successfully to S3',
+        key,
     }
 }
 
-/**
- * Creates and returns an S3 client if AWS credentials are available
- */
-function getS3Client() {
-    // Check if AWS credentials environment variables are set
-    if (!process.env.AWS_ACCESS_KEY_ID ||
-        !process.env.AWS_SECRET_ACCESS_KEY) {
-        console.warn('AWS credentials not found. File will not be uploaded to S3.')
-        // Return undefined for development purposes
-        return undefined
-    }
-
-    // Create S3 client
-    return new S3Client({
-        region: S3_CONFIG.AWS_REGION,
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-        }
+async function uploadVariantToStorage({ image, project }: { image: ProcessedImage, project: string }): Promise<{
+    success: boolean;
+    message: string;
+    key?: string;
+}> {
+    return uploadToStorage({
+        key: fullKeyForVariant({ name: image.fileName, project }),
+        buffer: image.buffer,
+        contentType: image.contentType
     })
 }
 
 function fullKeyForOriginal({
-    assetId,
+    fileName,
     project,
 }: {
-    assetId: string
+    fileName: string
     project: string
 }) {
-    return `${project}/originals/${assetId}`
+    return `${project}/originals/${fileName}`
 }
 
 function fullKeyForVariant({

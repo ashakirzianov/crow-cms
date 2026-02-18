@@ -39,7 +39,7 @@ export async function getAssetMetadata({ id, project }: { id: string, project: s
     return loadAssetMetadata({ id, project })
 }
 
-export async function getAssetNames({ project }: { project: string }) {
+export async function getAssetIds({ project }: { project: string }) {
     return redis.hkeys(assetsKey(project))
 }
 

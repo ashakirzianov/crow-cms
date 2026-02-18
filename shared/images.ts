@@ -4,9 +4,9 @@ export type ProcessedImage = {
     buffer: Buffer
     width: number
     height: number
+    fileName: string
     format: string
-    originalName: string
-    newName?: string
+    contentType: string
 }
 
 /**
@@ -53,7 +53,8 @@ export async function processImageFile(file: File): Promise<{
                 width: metadata.width,
                 height: metadata.height,
                 format: metadata.format,
-                originalName: file.name
+                fileName: file.name,
+                contentType: file.type,
             }
         }
     } catch (error) {
@@ -117,8 +118,8 @@ export async function createImageVariant({
                 width: info.width,
                 height: info.height,
                 format: info.format,
-                originalName: name,
-                newName: newName
+                contentType: 'image/webp',
+                fileName: newName,
             }
         }
     } catch (error) {
