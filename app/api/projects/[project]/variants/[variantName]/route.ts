@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requestVariant, VARIANT_LOCKED_MESSAGE } from "@/shared/fileStore"
-import { Result } from "@/shared/result"
+import { parseVariantFileName } from "@/shared/images"
 
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ project: string, variantName: string }> },
 ) {
     const { project, variantName } = await params
-    const parseResult = parseVariantName(variantName)
+    const parseResult = parseVariantFileName(variantName)
     if (!parseResult.success) {
         return NextResponse.json({ error: parseResult.message }, { status: 400 })
     }
@@ -44,37 +44,4 @@ export async function GET(
             'Cache-Control': 'public, max-age=31536000, immutable',
         },
     })
-}
-
-// Target format is '{originalName_with_extension}@{width}w{quality}q.{format}', where width and quality are optional
-function parseVariantName(variantName: string): Result<{
-    originalName: string, format: string, width?: number, quality?: number,
-}> {
-    const lastAt = variantName.lastIndexOf('@')
-    if (lastAt === -1) {
-        return {
-            success: false,
-            message: `Invalid variant name format: "${variantName}". Expected format is "{originalName_with_extension}@{width}w{quality}q.{format}", where width and quality are optional.`
-        }
-    }
-    const [originalName, variantPart] = [variantName.substring(0, lastAt), variantName.substring(lastAt + 1)]
-    const match = variantPart.match(/^(?:(\d+)w)?(?:(\d+)q)?\.(\w+)$/)
-    if (!match) {
-        return {
-            success: false,
-            message: `Invalid variant name format: "${variantName}". Expected format is "{originalName_with_extension}@{width}w{quality}q.{format}", where width and quality are optional.`
-        }
-    }
-    const [, widthStr, qualityStr, format] = match
-    const width = widthStr ? parseInt(widthStr) : undefined
-    const quality = qualityStr ? parseInt(qualityStr) : undefined
-
-    return {
-        success: true,
-        message: 'Variant name parsed successfully',
-        originalName,
-        format,
-        width,
-        quality,
-    }
 }
