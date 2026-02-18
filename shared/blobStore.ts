@@ -1,8 +1,23 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
 
 const S3_CONFIG = {
     AWS_REGION: 'us-east-2',
     BUCKET_NAME: 'crow-cms',
+}
+
+export async function existsInStorage({ key }: { key: string }): Promise<boolean> {
+    const s3Client = getS3Client()
+    if (!s3Client) return false
+
+    try {
+        await s3Client.send(new HeadObjectCommand({
+            Bucket: S3_CONFIG.BUCKET_NAME,
+            Key: key,
+        }))
+        return true
+    } catch {
+        return false
+    }
 }
 
 export async function downloadFromStorage({ key }: { key: string }): Promise<Buffer | undefined> {
