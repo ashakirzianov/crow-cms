@@ -42,8 +42,8 @@ export function assetMetadataUpdate(asset: AssetMetadata): AssetMetadataUpdate {
     return update
 }
 
-export function assetSrc(asset: AssetMetadata, root: string): string {
-    return `${root}/${asset.fileName}`
+export function assetFileName(asset: AssetMetadata): string {
+    return asset.fileName
 }
 
 export function assetAlt(asset: AssetMetadata) {

@@ -1,8 +1,9 @@
 import { AssetMetadata, generateAssetId, splitFileNameAndExtension } from './assets'
 import { getAssetIds, storeAsset, acquireVariantLock, releaseVariantLock, isVariantLocked } from './metadataStore'
-import { processImageFile, createImageVariant, ProcessedImage, variantFileName } from './images'
+import { processImageFile, createImageVariant, ProcessedImage } from './images'
 import { uploadToStorage, downloadFromStorage, existsInStorage } from './blobStore'
 import { Result } from './result'
+import { variantFileName } from './variants'
 
 const UNPUBLISHED_KIND = 'unpublished'
 export const VARIANT_LOCKED_MESSAGE = 'Variant is currently being generated'
