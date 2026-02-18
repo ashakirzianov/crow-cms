@@ -108,7 +108,7 @@ export async function createImageVariant({
         // Convert to standard Buffer type to avoid type issues
         const processedBuffer = Buffer.from(data)
 
-        const newName = variantFileName({ originalName, width, quality })
+        const newName = variantFileName({ originalName, width, quality, format: 'webp' })
         return {
             success: true,
             message: 'Image processed successfully',
@@ -133,9 +133,10 @@ export async function createImageVariant({
 }
 
 export function variantFileName({
-    originalName, width, quality,
+    originalName, width, quality, format,
 }: {
-    originalName: string, width?: number, quality?: number,
+    originalName: string, format: string,
+    width?: number, quality?: number,
 }): string {
-    return `${originalName}@${width !== undefined ? `w${width}` : ''}${quality !== undefined ? `q${quality}` : ''}.webp`
+    return `${originalName}@${width !== undefined ? `w${width}` : ''}${quality !== undefined ? `q${quality}` : ''}.${format}`
 }

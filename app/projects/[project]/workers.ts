@@ -27,7 +27,11 @@ export async function generateDefaultVariants({ project }: { project: string }) 
     console.info(`Generating variants for ${allAssets.length} assets in project "${project}"`)
     let failures = 0
     for (const asset of allAssets) {
-        const result = await requestVariant({ fileName: asset.fileName, project })
+        const result = await requestVariant({
+            fileName: asset.fileName,
+            project,
+            format: 'webp',
+        })
         if (!result.success) {
             console.error(`Failed to generate variant for asset "${asset.id}": ${result.message}`)
             failures++

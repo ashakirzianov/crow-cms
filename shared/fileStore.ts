@@ -91,10 +91,11 @@ export async function uploadAssetFile({ file, project }: { file: File, project: 
 }
 
 export async function requestVariant({
-    fileName, project, width, quality, downloadExisting,
+    fileName, project, format, width, quality, downloadExisting,
 }: {
     fileName: string
     project: string
+    format: string
     width?: number
     quality?: number
     downloadExisting?: boolean
@@ -102,7 +103,10 @@ export async function requestVariant({
     key: string
     buffer?: Buffer
 }>> {
-    const variantName = variantFileName({ originalName: fileName, width, quality })
+    if (format !== 'webp') {
+        return { success: false, message: `Unsupported format requested: ${format}. Only "webp" is supported.` }
+    }
+    const variantName = variantFileName({ originalName: fileName, width, quality, format })
     const variantKey = fullKeyForVariant({ fileName: variantName, project })
 
     if (await existsInStorage({ key: variantKey })) {
