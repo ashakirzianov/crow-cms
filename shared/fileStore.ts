@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { generateAssetId, splitFileNameAndExtension, AssetMetadata } from './assets'
 import { getAssetNames, storeAsset } from './metadataStore'
 import { processImage } from './images'
@@ -93,6 +93,45 @@ export async function uploadAssetFile({ file, project }: { file: File, project: 
             message: error instanceof Error ? `Upload error: ${error.message}` : 'Unknown upload error'
         }
     }
+}
+
+export async function downloadOriginalFromS3({ assetId, project }: { assetId: string, project: string }): Promise<Buffer | undefined> {
+    const s3Client = getS3Client()
+    if (!s3Client) return undefined
+
+    const key = fullKeyForOriginal({ assetId, project })
+    const command = new GetObjectCommand({
+        Bucket: S3_CONFIG.BUCKET_NAME,
+        Key: key,
+    })
+    const response = await s3Client.send(command)
+    if (!response.Body) return undefined
+
+    const bytes = await response.Body.transformToByteArray()
+    return Buffer.from(bytes)
+}
+
+export async function uploadVariantToS3({ buffer, name, project }: {
+    buffer: Buffer
+    name: string
+    project: string
+}): Promise<{ success: boolean; message: string; key?: string }> {
+    const s3Client = getS3Client()
+    if (!s3Client) {
+        return { success: false, message: 'S3 client not initialized. Check AWS credentials.' }
+    }
+
+    const key = fullKeyForVariant({ name, project })
+    const result = await uploadToS3Bucket({
+        s3Client,
+        bucketName: S3_CONFIG.BUCKET_NAME,
+        key,
+        buffer,
+        contentType: 'image/webp',
+    })
+
+    if (!result.success) return result
+    return { success: true, message: 'Variant uploaded', key }
 }
 
 /**
@@ -196,7 +235,7 @@ async function createAssetMetadata({ asset, project }: { asset: AssetMetadata, p
 /**
  * Core utility for uploading a buffer to an S3 bucket
  */
-export async function uploadToS3Bucket({
+async function uploadToS3Bucket({
     s3Client,
     bucketName,
     key,
@@ -270,4 +309,14 @@ function fullKeyForOriginal({
     project: string
 }) {
     return `${project}/originals/${assetId}`
+}
+
+function fullKeyForVariant({
+    name,
+    project,
+}: {
+    name: string
+    project: string
+}) {
+    return `${project}/variants/${name}`
 }
