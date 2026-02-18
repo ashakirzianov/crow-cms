@@ -64,10 +64,20 @@ export async function uploadAssetFile({ file, project }: { file: File, project: 
             }
         }
 
+        let message = 'Asset uploaded and metadata created successfully'
+
+        // STAGE 3: Generate and upload default variant
+        const variantResult = await generateAndUploadVariant({ buffer: image.buffer, originalName: fileName, project })
+        if (!variantResult.success) {
+            console.error('Variant generation/upload failed:', variantResult)
+            // Not critical enough to fail the whole upload, so we log the error but continue
+            message += `. However, variant generation/upload failed: ${variantResult.message}`
+        }
+
         // Return success with all details
         return {
             success: true,
-            message: 'Asset uploaded and metadata created successfully',
+            message,
             fileName,
             assetId
         }
