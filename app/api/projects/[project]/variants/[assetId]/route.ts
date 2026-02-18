@@ -16,7 +16,10 @@ export async function GET(
     const width = numberParam(request, 'width')
     const quality = numberParam(request, 'quality')
 
-    const result = await requestVariant({ fileName: asset.fileName, project, width, quality })
+    const result = await requestVariant({
+        fileName: asset.fileName, downloadExisting: true,
+        project, width, quality,
+    })
     if (!result.success) {
         if (result.message === VARIANT_LOCKED_MESSAGE) {
             console.info(`Variant for asset "${assetId}" is currently being generated. Client should retry after some time.`)
@@ -30,6 +33,10 @@ export async function GET(
 
     if (!result.key) {
         return NextResponse.json({ error: "Failed to generate variant" }, { status: 500 })
+    }
+
+    if (!result.buffer) {
+        return NextResponse.json({ error: "Variant generated but failed to retrieve file buffer" }, { status: 500 })
     }
 
     const buffer = result.buffer

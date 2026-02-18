@@ -1,6 +1,6 @@
 'use client'
 import { Button } from "@/shared/Atoms"
-import { normalizeOrder } from "./workers"
+import { normalizeOrder, generateDefaultVariants } from "./workers"
 import { useActionState } from "react"
 
 export default function WorkersPane({ project }: { project: string }) {
@@ -9,6 +9,11 @@ export default function WorkersPane({ project }: { project: string }) {
             title="Normalize Order"
             project={project}
             action={normalizeOrder}
+        />
+        <WorkerButton
+            title="Generate Default Variants"
+            project={project}
+            action={generateDefaultVariants}
         />
     </section>
 }

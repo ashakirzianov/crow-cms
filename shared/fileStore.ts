@@ -79,24 +79,30 @@ export async function uploadAssetFile({ file, project }: { file: File, project: 
     }
 }
 
-export async function requestVariant({ fileName, project, width, quality }: {
+export async function requestVariant({
+    fileName, project, width, quality, downloadExisting,
+}: {
     fileName: string
     project: string
     width?: number
     quality?: number
+    downloadExisting?: boolean
 }): Promise<Result<{
     key: string
-    buffer: Buffer
+    buffer?: Buffer
 }>> {
     const variantName = variantFileName({ originalName: fileName, width, quality })
     const variantKey = fullKeyForVariant({ fileName: variantName, project })
 
     if (await existsInStorage({ key: variantKey })) {
-        const downloadResult = await downloadFromStorage({ key: variantKey })
-        if (!downloadResult.success) {
-            return { success: false, message: 'Failed to retrieve variant from storage' }
+        if (downloadExisting) {
+            const downloadResult = await downloadFromStorage({ key: variantKey })
+            if (!downloadResult.success) {
+                return { success: false, message: 'Failed to retrieve variant from storage' }
+            }
+            return { success: true, message: 'Variant already exists', key: variantKey, buffer: downloadResult.buffer }
         }
-        return { success: true, message: 'Variant already exists', key: variantKey, buffer: downloadResult.buffer }
+        return { success: true, message: 'Variant already exists', key: variantKey }
     }
 
     if (await isVariantLocked({ variantKey })) {
