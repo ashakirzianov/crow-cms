@@ -6,6 +6,7 @@ import { Result } from './result'
 
 const UNPUBLISHED_KIND = 'unpublished'
 export const VARIANT_LOCKED_MESSAGE = 'Variant is currently being generated'
+export const VARIANT_ALREADY_EXISTS_MESSAGE = 'Variant already exists'
 
 export type UploadProgress = {
     fileName: string
@@ -100,9 +101,9 @@ export async function requestVariant({
             if (!downloadResult.success) {
                 return { success: false, message: 'Failed to retrieve variant from storage' }
             }
-            return { success: true, message: 'Variant already exists', key: variantKey, buffer: downloadResult.buffer }
+            return { success: true, message: VARIANT_ALREADY_EXISTS_MESSAGE, key: variantKey, buffer: downloadResult.buffer }
         }
-        return { success: true, message: 'Variant already exists', key: variantKey }
+        return { success: true, message: VARIANT_ALREADY_EXISTS_MESSAGE, key: variantKey }
     }
 
     if (await isVariantLocked({ variantKey })) {
@@ -148,7 +149,6 @@ export async function generateAndUploadVariant({ buffer, originalName, project, 
     if (!upload.success) return upload
     return {
         success: true,
-        message: 'Variant generated and uploaded',
         key: upload.key,
         buffer: result.image.buffer,
     } as const

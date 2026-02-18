@@ -18,26 +18,48 @@ export default function WorkersPane({ project }: { project: string }) {
     </section>
 }
 
-function WorkerButton({ title, action, project }: {
+function WorkerButton<T>({ title, action, project }: {
     project: string,
     title: string,
-    action: (payload: { project: string }) => Promise<boolean>
+    action: (payload: { project: string }) => Promise<{
+        success: boolean,
+        payload: T,
+    }>
 }) {
     async function handleAction(): Promise<ActionState> {
         const result = await action({ project })
-        if (result) {
-            return 'success'
+        if (result.success) {
+            return {
+                state: 'success',
+                payload: result.payload,
+            }
         } else {
-            return 'error'
+            return {
+                state: 'error',
+                payload: result.payload,
+            }
         }
     }
-    type ActionState = 'idle' | 'success' | 'error'
-    const [state, formAction, isPending] = useActionState<ActionState>(handleAction, 'idle')
+    type ActionState = { state: 'idle' } | {
+        state: 'success',
+        payload: T,
+    } | {
+        state: 'error',
+        payload: T,
+    }
+    const [state, formAction, isPending] = useActionState<ActionState>(handleAction, { state: 'idle' })
+    function payloadToMessage(payload: T): string {
+        return JSON.stringify(payload)
+    }
+    const text = isPending ? 'Pending...'
+        : state.state === 'success' ? `Success! ${payloadToMessage(state.payload)}`
+            : state.state === 'error' ? `Error! ${payloadToMessage(state.payload)}`
+                : 'Run'
     return <form action={formAction} className="flex flex-row items-center gap-4">
         <label>{title}</label>
         <Button
             type="submit"
-            text={isPending ? 'Pending...' : state === 'success' ? 'Success!' : state === 'error' ? 'Error!' : 'Run'}
+            text={text}
             disabled={isPending}
         />
     </form>
