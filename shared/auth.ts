@@ -10,7 +10,7 @@ type ProjectData = {
 const authorizations: Record<string, ProjectData> = {
     alikro: {
         users: ['alikro', 'ashakirzianov'],
-        secret: process.env.ALIKRO_AUTH_SECRET ?? 'alikro',
+        secret: process.env.ALIKRO_SECRET_KEY ?? 'alikro',
     },
 }
 
