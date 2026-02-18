@@ -86,13 +86,17 @@ export async function requestVariant({ fileName, project, width, quality }: {
     quality?: number
 }): Promise<Result<{
     key: string
-    buffer?: Buffer
+    buffer: Buffer
 }>> {
     const variantName = variantFileName({ originalName: fileName, width, quality })
     const variantKey = fullKeyForVariant({ fileName: variantName, project })
 
     if (await existsInStorage({ key: variantKey })) {
-        return { success: true, message: 'Variant already exists', key: variantKey }
+        const downloadResult = await downloadFromStorage({ key: variantKey })
+        if (!downloadResult.success) {
+            return { success: false, message: 'Failed to retrieve variant from storage' }
+        }
+        return { success: true, message: 'Variant already exists', key: variantKey, buffer: downloadResult.buffer }
     }
 
     if (await isVariantLocked({ variantKey })) {

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAssetMetadata } from "@/shared/metadataStore"
 import { requestVariant, VARIANT_LOCKED_MESSAGE } from "@/shared/fileStore"
-import { downloadFromStorage } from "@/shared/blobStore"
 
 export async function GET(
     request: NextRequest,
@@ -33,16 +32,10 @@ export async function GET(
         return NextResponse.json({ error: "Failed to generate variant" }, { status: 500 })
     }
 
-    let buffer = result.buffer
-    if (!buffer) {
-        const downloadResult = await downloadFromStorage({ key: result.key })
-        if (!downloadResult.success) {
-            return NextResponse.json({ error: 'Failed to retrieve variant from storage' }, { status: 500 })
-        }
-        buffer = downloadResult.buffer
-    }
+    const buffer = result.buffer
+    const array = new Uint8Array(buffer)
 
-    return new NextResponse(new Uint8Array(buffer), {
+    return new NextResponse(array, {
         headers: {
             'Content-Type': 'image/webp',
             'Cache-Control': 'public, max-age=31536000, immutable',
