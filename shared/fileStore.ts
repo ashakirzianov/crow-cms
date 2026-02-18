@@ -49,7 +49,7 @@ export async function uploadAssetFile({ file, project }: { file: File, project: 
         const { image } = processResult
 
         // STAGE 2: Generate unique asset ID and upload to S3
-        const uploadResult = await uploadImageToS3WithUniqueId({ image, project })
+        const uploadResult = await uploadOriginalImageToS3WithUniqueId({ image, project })
         if (!uploadResult.success || !uploadResult.fileName || !uploadResult.assetId) {
             console.error('Upload failed:', uploadResult)
             return uploadResult
@@ -137,7 +137,7 @@ export async function uploadVariantToS3({ buffer, name, project }: {
 /**
  * Stage 2: Generate unique asset ID and upload to S3
  */
-async function uploadImageToS3WithUniqueId({ image, project }: { image: ProcessedImage, project: string }): Promise<{
+async function uploadOriginalImageToS3WithUniqueId({ image, project }: { image: ProcessedImage, project: string }): Promise<{
     success: boolean;
     message: string;
     fileName?: string;
