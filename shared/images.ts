@@ -13,7 +13,7 @@ export type ProcessedImage = {
  * Stage 1: Process the image
  * Validates that the file is an image, checks dimensions, and resizes if needed
  */
-export async function processImage(file: File): Promise<{
+export async function processImageFile(file: File): Promise<{
     success: boolean;
     message: string;
     image?: ProcessedImage;
@@ -68,28 +68,18 @@ export async function processImage(file: File): Promise<{
 }
 
 export async function createImageVariant({
-    file, width, quality,
+    buffer, name, width, quality,
 }: {
+    buffer: Buffer,
+    name: string,
     width?: number,
     quality?: number,
-    file: File,
 }): Promise<{
     success: boolean;
     message: string;
     image?: ProcessedImage;
 }> {
     try {
-        // Check if the file is an image based on MIME type
-        if (!file.type.startsWith('image/')) {
-            return {
-                success: false,
-                message: 'File is not an image. Only image files are supported.'
-            }
-        }
-
-        // Convert file to buffer
-        const arrayBuffer = await file.arrayBuffer()
-        const buffer = Buffer.from(arrayBuffer)
 
         // Use sharp to process the image
         let image = sharp(buffer, {
@@ -118,7 +108,7 @@ export async function createImageVariant({
         // Convert to standard Buffer type to avoid type issues
         const processedBuffer = Buffer.from(data)
 
-        const newName = `${file.name}@${width !== undefined ? `w${width}` : ''}${quality !== undefined ? `q${quality}` : ''}.webp`
+        const newName = `${name}@${width !== undefined ? `w${width}` : ''}${quality !== undefined ? `q${quality}` : ''}.webp`
         return {
             success: true,
             message: 'Image processed successfully',
@@ -127,7 +117,7 @@ export async function createImageVariant({
                 width: info.width,
                 height: info.height,
                 format: info.format,
-                originalName: file.name,
+                originalName: name,
                 newName: newName
             }
         }

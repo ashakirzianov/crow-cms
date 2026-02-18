@@ -1,7 +1,7 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { generateAssetId, splitFileNameAndExtension, AssetMetadata } from './assets'
 import { getAssetNames, storeAsset } from './metadataStore'
-import { processImage } from './images'
+import { processImageFile } from './images'
 
 const UNPUBLISHED_KIND = 'unpublished'
 
@@ -41,7 +41,7 @@ export async function uploadAssetFile({ file, project }: { file: File, project: 
 }> {
     try {
         // STAGE 1: Process the image
-        const processResult = await processImage(file)
+        const processResult = await processImageFile(file)
         if (!processResult.success || !processResult.image) {
             return processResult
         }
