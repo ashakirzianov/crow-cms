@@ -87,12 +87,17 @@ export async function requestVariant({ fileName, project, width, quality }: {
     project: string
     width?: number
     quality?: number
-}) {
+}): Promise<{
+    success: boolean
+    message: string
+    key?: string
+    buffer?: Buffer
+}> {
     const variantName = variantFileName({ originalName: fileName, width, quality })
     const variantKey = fullKeyForVariant({ fileName: variantName, project })
 
     if (await existsInStorage({ key: variantKey })) {
-        return { success: true, message: 'Variant already exists', variantKey } as const
+        return { success: true, message: 'Variant already exists', key: variantKey } as const
     }
 
     const originalKey = fullKeyForOriginal({ fileName, project })
@@ -110,7 +115,12 @@ export async function generateAndUploadVariant({ buffer, originalName, project, 
     project: string
     width?: number
     quality?: number
-}) {
+}): Promise<{
+    success: boolean
+    message: string
+    key?: string
+    buffer?: Buffer
+}> {
     const result = await createImageVariant({ buffer, originalName, width, quality })
     if (!result.success || !result.image) {
         return { success: false, message: result.message } as const
@@ -124,7 +134,7 @@ export async function generateAndUploadVariant({ buffer, originalName, project, 
     return {
         success: true,
         message: 'Variant generated and uploaded',
-        variantKey: upload.key,
+        key: upload.key,
         buffer: result.image.buffer,
     } as const
 }
