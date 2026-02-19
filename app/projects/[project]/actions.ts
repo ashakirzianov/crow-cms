@@ -4,8 +4,9 @@ import { applyMetadataUpdates, deleteAssetMetadata, getAssetMetadata, storeAsset
 import { isAuthorized } from "@/shared/auth"
 import { parseAssetCreates, parseAssetUpdates } from "@/app/projects/[project]/common"
 import { uploadAssetFile } from "@/shared/fileStore"
-import { revalidatePath } from "next/cache"
+import { revalidateTag } from "next/cache"
 import { Result } from "@/shared/result"
+import { getProjectConfig } from "@/shared/projects"
 
 export async function updateAsset({
     project, id, formData,
@@ -57,7 +58,7 @@ export async function updateAsset({
         const updatedAsset = await getAssetMetadata({ id, project })
 
         // Revalidate the console path to reflect changes
-        revalidatePathsForAssets([update])
+        revalidateTagsForAssets([update], project)
 
         return {
             success: true,
@@ -94,7 +95,7 @@ export async function deleteAsset({
 
         // Revalidate the console path to reflect changes
         if (result) {
-            revalidatePathsForAssets([asset])
+            revalidateTagsForAssets([asset], project)
         }
 
         return {
@@ -138,9 +139,9 @@ export async function uploadFile({ project, formData }: { project: string, formD
 
         // Revalidate the console path to reflect the new asset
         if (result.success && result.assetId) {
-            revalidatePathsForAssets([{
+            revalidateTagsForAssets([{
                 id: result.assetId,
-            }])
+            }], project)
         }
 
         return result
@@ -181,7 +182,7 @@ export async function handleJsonCreate(project: string, formData: FormData): Pro
         const result = await storeAssets({ project, assets })
         console.info('Created assets: ', result)
         // Revalidate the console path to reflect changes
-        revalidatePathsForAssets(assets)
+        revalidateTagsForAssets(assets, project)
         return {
             success: true,
             saved: true,
@@ -202,7 +203,7 @@ export async function handleJsonUpdate(project: string, formData: FormData): Pro
         const result = await applyMetadataUpdates({ project, updates })
         console.info('Updated assets: ', result)
         // Revalidate the console path to reflect changes
-        revalidatePathsForAssets(updates)
+        revalidateTagsForAssets(updates, project)
         return {
             success: true,
             saved: true,
@@ -215,18 +216,14 @@ export async function handleJsonUpdate(project: string, formData: FormData): Pro
     }
 }
 
-function revalidatePathsForAssets(updates: AssetMetadataUpdate[]) {
-    const affectedPaths = updates.flatMap((update) => affectedPathsForAsset(update))
-    for (const path of affectedPaths) {
-        revalidatePath(path)
+function revalidateTagsForAssets(updates: AssetMetadataUpdate[], project: string) {
+    const projectConfig = getProjectConfig(project)
+    const revalidateAssetHook = projectConfig?.revalidateAsset
+    const revalidateIndexHook = projectConfig?.revalidateAssetIndex
+    for (const update of updates) {
+        revalidateTag(`${project}:asset:${update.id}`, 'max')
+        revalidateAssetHook?.(update.id)
     }
-}
-
-// TODO: rethink this -- affected collections
-function affectedPathsForAsset(_asset: AssetMetadataUpdate) {
-    return [
-        '/',
-        '/console',
-    ]
+    revalidateIndexHook?.()
 }
 
