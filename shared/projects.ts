@@ -19,7 +19,10 @@ const projects: Record<string, ProjectConfig> = {
 }
 
 function makeAlikroConfig(): ProjectConfig {
-    const baseUrl = process.env.ALIKRO_URL ?? 'http://localhost:3000'
+    if (!process.env.ALIKRO_URL) {
+        console.warn('ALIKRO_URL is not set. Using default URL.')
+    }
+    const baseUrl = process.env.ALIKRO_URL ?? 'https://www.alikro.art:3000'
     async function revalidateTagHook(tag: string) {
         try {
             const Authorization = `Bearer ${process.env.ALIKRO_SECRET_KEY ?? 'alikro'}`
