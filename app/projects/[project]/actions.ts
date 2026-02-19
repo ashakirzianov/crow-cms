@@ -17,11 +17,6 @@ export async function updateAsset({
         if (!await isAuthorized(project)) {
             return { success: false, message: 'Unauthorized' }
         }
-        // Get current asset data
-        const asset = await getAssetMetadata({ id, project })
-        if (!asset) {
-            return { success: false, message: `Asset with ID "${id}" not found` }
-        }
 
         // Prepare update data
         const update: AssetMetadataUpdate = {
@@ -183,7 +178,7 @@ export async function handleJsonUpdate(project: string, formData: FormData): Pro
         const updates = parsed.data
         const result = await applyMetadataUpdates({ project, updates })
         if (result.success) {
-            console.info('Updated assets: ', result.updates.map(u => u.update.id))
+            console.info('Updated assets: ', result.updatedIds)
         }
         return {
             success: true,

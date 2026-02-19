@@ -1,7 +1,7 @@
 import { Redis } from '@upstash/redis'
 import { AssetMetadata, AssetMetadataUpdate } from './assets'
-import { cacheLife, cacheTag } from 'next/cache'
-import { revalidateTagsForAssetCreations, revalidateTagsForAssetDeletions, revalidateTagsForAssetUpdates, tagForAssetId, tagForAssetIndex } from '@/app/projects/[project]/cache'
+import { cacheLife } from 'next/cache'
+import { cacheTagForAssetId, cacheTagForAssetsIndex, revalidateTagsForAssetCreations, revalidateTagsForAssetDeletions, revalidateTagsForAssetUpdates } from '@/app/projects/[project]/cache'
 import { Result } from './result'
 
 type AssetMetadataValue = Omit<AssetMetadata, 'id'>
@@ -19,21 +19,20 @@ export async function getAllAssetMetadata({ project }: {
 }) {
     'use cache'
     cacheLife('days')
-    cacheTag(tagForAssetIndex(project))
-    return loadAllAssetMetadata({ project })
+    cacheTagForAssetsIndex(project)
+    const allAssets = await loadAllAssetMetadata({ project })
+    allAssets.forEach(asset => cacheTagForAssetId(asset.id, project))
+    return allAssets
 }
 
 export async function getAssetMetadata({ id, project }: { id: string, project: string }) {
     'use cache'
     cacheLife('days')
-    cacheTag(tagForAssetId(id, project))
+    cacheTagForAssetId(id, project)
     return loadAssetMetadata({ id, project })
 }
 
 export async function getAssetIds({ project }: { project: string }) {
-    'use cache'
-    cacheLife('days')
-    cacheTag(tagForAssetIndex(project))
     return redis.hkeys(assetsKey(project))
 }
 
@@ -46,7 +45,7 @@ export async function storeAsset({ asset, project }: { asset: AssetMetadata, pro
         [id]: JSON.stringify(metadata),
     })
 
-    revalidateTagsForAssetCreations([asset], project, 'max')
+    revalidateTagsForAssetCreations([asset.id], project, 'max')
 
     return true
 }
@@ -55,48 +54,42 @@ export async function storeAsset({ asset, project }: { asset: AssetMetadata, pro
 export async function storeAssets({ assets, project }: { assets: AssetMetadata[], project: string }): Promise<boolean> {
     const entries: AssetsRecord = {}
 
-    const creations: AssetMetadata[] = []
+    const createdIds: string[] = []
     for (const asset of assets) {
         if (!asset.id) {
             continue
         }
         const { id, ...metadata } = asset
         entries[id] = metadata
-        creations.push(asset)
+        createdIds.push(id)
     }
 
     await redis.hset(assetsKey(project), entries)
-    revalidateTagsForAssetCreations(creations, project, 'max')
-
+    revalidateTagsForAssetCreations(createdIds, project, 'max')
     return true
 }
 
 // Delete a single asset
 export async function deleteAssetMetadata({ id, project }: { id: string, project: string }): Promise<boolean> {
-    const data = await redis.hget<AssetMetadataValue>(assetsKey(project), id)
-    if (!data) {
-        return false
-    }
-    const asset: AssetMetadata = { id, ...data }
     await redis.hdel(assetsKey(project), id)
-    revalidateTagsForAssetDeletions([asset], project, 'max')
+    revalidateTagsForAssetDeletions([id], project, 'max')
     return true
 }
 
 export async function applyMetadataUpdates(
     { project, updates }: { project: string, updates: AssetMetadataUpdate[] }): Promise<Result<{
-        updates: Array<{ asset: AssetMetadata, update: AssetMetadataUpdate }>,
+        updatedIds: string[],
     }>> {
     const data = await redis.hgetall<AssetsRecord>(assetsKey(project))
     if (!data) {
         return { success: false, message: 'No assets found' } as const
     }
     const assetStore: AssetsRecord = {}
-    const updated: Array<{ asset: AssetMetadata, update: AssetMetadataUpdate }> = []
+    const updatedIds: string[] = []
     for (const update of updates) {
         const { id, ...metadata } = update
         if (data[id]) {
-            updated.push({ asset: { id, ...data[id] }, update })
+            updatedIds.push(id)
             assetStore[id] = {
                 ...data[id],
                 ...metadata,
@@ -106,8 +99,8 @@ export async function applyMetadataUpdates(
 
     if (Object.keys(assetStore).length > 0) {
         await redis.hset(assetsKey(project), assetStore)
-        revalidateTagsForAssetUpdates(updated, project, 'max')
-        return { success: true, updates: updated } as const
+        revalidateTagsForAssetUpdates(updatedIds, project, 'max')
+        return { success: true, updatedIds } as const
     } else {
         return { success: false, message: 'No assets updated' } as const
     }

@@ -24,7 +24,6 @@ function makeAlikroConfig(): ProjectConfig {
     async function revalidateTagHook(tag: string) {
         try {
             const Authorization = `Bearer ${process.env.ALIKRO_SECRET_KEY ?? 'alikro'}`
-            console.log(`Revalidating tag "${tag}" with authorization "${Authorization}"`)
             // Call {baseUrl}/api/revalidate/{tag} to revalidate the tag
             const res = await fetch(`${baseUrl}/api/revalidate/${tag}`, {
                 method: 'POST',
