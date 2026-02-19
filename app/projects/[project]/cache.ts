@@ -1,4 +1,4 @@
-import { revalidateTag } from "next/cache"
+import { cacheTag, revalidateTag } from "next/cache"
 import { getProjectConfig } from "@/shared/projects"
 
 export function revalidateTagsForAssetUpdates(
@@ -9,10 +9,9 @@ export function revalidateTagsForAssetUpdates(
     const internal = new Set<string>()
     const external = new Set<string>()
     for (const assetId of assetIds) {
-        internal.add(tagForAssetId(assetId, project))
-        internal.add(tagForAssetIndex(project))
         external.add(externalTagForAssetId(assetId))
     }
+    internal.add(tagForAssetIndex(project))
     revalidateTags({
         internal,
         external,
@@ -29,7 +28,6 @@ export function revalidateTagsForAssetCreations(
     const internal = new Set<string>()
     const external = new Set<string>()
     for (const assetId of assetIds) {
-        internal.add(tagForAssetId(assetId, project))
         external.add(externalTagForAssetId(assetId))
     }
     internal.add(tagForAssetIndex(project))
@@ -51,11 +49,11 @@ export function revalidateTagsForAssetDeletions(
 }
 
 export function cacheTagForAssetsIndex(project: string) {
-    return tagForAssetIndex(project)
+    cacheTag(tagForAssetIndex(project))
 }
 
 export function cacheTagForAssetId(assetId: string, project: string) {
-    return tagForAssetId(assetId, project)
+    cacheTag(tagForAssetId(assetId, project))
 }
 
 // --- Helpers ---
