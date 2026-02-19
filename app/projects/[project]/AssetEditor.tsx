@@ -3,10 +3,13 @@
 import { AssetImage } from "@/shared/AssetImage"
 import { AssetKind, AssetMetadata, AssetTag } from "@/shared/assets"
 import { useState, useTransition, useEffect, useRef } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/shared/Atoms"
 import { deleteAsset, updateAsset } from "@/app/projects/[project]/actions"
+import { prettifyId } from "@/app/projects/[project]/workers"
 import Link from "next/link"
 import { getProjectConfig } from "@/shared/projects"
+import { hrefForConsole } from "@/shared/href"
 
 export default function AssetEditor({
   project,
@@ -30,6 +33,8 @@ export default function AssetEditor({
   const [isDeleting, setIsDeleting] = useState(false)
   const [showCustomKind, setShowCustomKind] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
   // Reset form fields when asset changes
   useEffect(() => {
@@ -121,6 +126,19 @@ export default function AssetEditor({
         if (onUpdate) {
           onUpdate(result.asset)
         }
+      } else {
+        setMessage({ type: 'error', text: result.message })
+      }
+    })
+  }
+
+  const handlePrettifyId = () => {
+    setMessage(null)
+    startTransition(async () => {
+      const result = await prettifyId({ project, asset })
+      if (result.success) {
+        const filter = searchParams.get('filter') ?? undefined
+        router.push(hrefForConsole({ project, filter, action: 'edit', assetId: result.newAssetId }))
       } else {
         setMessage({ type: 'error', text: result.message })
       }
@@ -334,8 +352,15 @@ export default function AssetEditor({
           />
         </div>
 
-        <div>
+        <div className="flex items-center gap-2">
           <span className="font-medium">ID:</span> {asset.id}
+          <Button
+            type="button"
+            kind="gray"
+            onClick={handlePrettifyId}
+            disabled={isPending}
+            text="Prettify ID"
+          />
         </div>
         <div>
           <span className="font-medium">File Name:</span> {asset.fileName}
