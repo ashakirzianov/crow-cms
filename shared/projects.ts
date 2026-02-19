@@ -9,6 +9,10 @@ export function getProjectConfig(project: string): ProjectConfig | undefined {
     return projects[project]
 }
 
+export function getAllProjects(): string[] {
+    return Object.keys(projects)
+}
+
 const projects: Record<string, ProjectConfig> = {
     alikro: makeAlikroConfig(),
 }

@@ -1,13 +1,16 @@
 import { revalidateTag } from "next/cache"
-import { AssetMetadata } from "@/shared/assets"
+import { AssetMetadata, AssetMetadataUpdate } from "@/shared/assets"
 import { getProjectConfig } from "@/shared/projects"
 
 export function revalidateTagsForAssetUpdates(
-    updates: { asset: AssetMetadata, update: AssetMetadata }[],
+    updates: { asset: AssetMetadata, update: AssetMetadataUpdate }[],
     project: string,
     profile: string,
 ) {
-    revalidateTags(mergeTags(updates.map(({ asset, update }) => tagsForAssetUpdate(asset, update, project))), profile, project)
+    const tags = mergeTags(updates.map(({ asset, update }) => tagsForAssetUpdate(asset, update, project)))
+    tags.internal.push(tagForAssetIndex(project))
+    tags.external.push(externalTagForAssetIndex())
+    revalidateTags(tags, profile, project)
 }
 
 export function revalidateTagsForAssetCreations(
@@ -26,6 +29,8 @@ export function revalidateTagsForAssetDeletions(
     revalidateTags(mergeTags(assets.map(asset => tagsForAsset(asset, project))), profile, project)
 }
 
+// --- Helpers ---
+
 function mergeTags(all: { internal: string[], external: string[] }[]): { internal: string[], external: string[] } {
     return {
         internal: Array.from(new Set(all.flatMap(t => t.internal))),
@@ -33,7 +38,11 @@ function mergeTags(all: { internal: string[], external: string[] }[]): { interna
     }
 }
 
-function tagForAssetId(id: string, project: string) {
+export function tagForAssetIndex(project: string) {
+    return `${project}-asset-index`
+}
+
+export function tagForAssetId(id: string, project: string) {
     return `${project}-asset-${id}`
 }
 
@@ -47,6 +56,10 @@ function tagForMaterial(material: string, project: string) {
 
 function tagForAssetTag(tag: string, project: string) {
     return `${project}-asset-tag-${tag}`
+}
+
+function externalTagForAssetIndex() {
+    return `crow-asset-index`
 }
 
 function externalTagForAssetId(id: string) {
@@ -69,8 +82,8 @@ function tagsForAsset(asset: AssetMetadata, project: string): {
     internal: string[],
     external: string[],
 } {
-    const internal: string[] = [tagForAssetId(asset.id, project)]
-    const external: string[] = [externalTagForAssetId(asset.id)]
+    const internal: string[] = [tagForAssetId(asset.id, project), tagForAssetIndex(project)]
+    const external: string[] = [externalTagForAssetId(asset.id), externalTagForAssetIndex()]
 
     if (asset.year !== undefined) {
         internal.push(tagForYear(asset.year, project))
@@ -90,7 +103,7 @@ function tagsForAsset(asset: AssetMetadata, project: string): {
     return { internal, external }
 }
 
-function tagsForAssetUpdate(asset: AssetMetadata, update: AssetMetadata, project: string): {
+function tagsForAssetUpdate(asset: AssetMetadata, update: AssetMetadataUpdate, project: string): {
     internal: string[],
     external: string[],
 } {

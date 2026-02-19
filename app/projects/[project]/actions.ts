@@ -4,9 +4,7 @@ import { applyMetadataUpdates, deleteAssetMetadata, getAssetMetadata, storeAsset
 import { isAuthorized } from "@/shared/auth"
 import { parseAssetCreates, parseAssetUpdates } from "@/app/projects/[project]/common"
 import { uploadAssetFile } from "@/shared/fileStore"
-import { revalidateTag } from "next/cache"
 import { Result } from "@/shared/result"
-import { getProjectConfig } from "@/shared/projects"
 
 export async function updateAsset({
     project, id, formData,
@@ -57,9 +55,6 @@ export async function updateAsset({
         // Get updated asset
         const updatedAsset = await getAssetMetadata({ id, project })
 
-        // Revalidate the console path to reflect changes
-        revalidateTagsForAssets([update], project)
-
         return {
             success: true,
             message: 'Asset updated successfully',
@@ -92,11 +87,6 @@ export async function deleteAsset({
 
         // Delete the asset from metadata store using the dedicated function
         const result = await deleteAssetMetadata({ id, project })
-
-        // Revalidate the console path to reflect changes
-        if (result) {
-            revalidateTagsForAssets([asset], project)
-        }
 
         return {
             success: result,
@@ -137,13 +127,6 @@ export async function uploadFile({ project, formData }: { project: string, formD
         // 4. Creates metadata record
         const result = await uploadAssetFile({ file, project })
 
-        // Revalidate the console path to reflect the new asset
-        if (result.success && result.assetId) {
-            revalidateTagsForAssets([{
-                id: result.assetId,
-            }], project)
-        }
-
         return result
     } catch (error) {
         console.error('Error in uploadFile:', error)
@@ -181,8 +164,6 @@ export async function handleJsonCreate(project: string, formData: FormData): Pro
         const assets = parsed.data
         const result = await storeAssets({ project, assets })
         console.info('Created assets: ', result)
-        // Revalidate the console path to reflect changes
-        revalidateTagsForAssets(assets, project)
         return {
             success: true,
             saved: true,
@@ -201,9 +182,9 @@ export async function handleJsonUpdate(project: string, formData: FormData): Pro
     if (parsed.success) {
         const updates = parsed.data
         const result = await applyMetadataUpdates({ project, updates })
-        console.info('Updated assets: ', result)
-        // Revalidate the console path to reflect changes
-        revalidateTagsForAssets(updates, project)
+        if (result.success) {
+            console.info('Updated assets: ', result.updates.map(u => u.update.id))
+        }
         return {
             success: true,
             saved: true,
@@ -214,14 +195,5 @@ export async function handleJsonUpdate(project: string, formData: FormData): Pro
             message: parsed.error.toString(),
         }
     }
-}
-
-function revalidateTagsForAssets(updates: AssetMetadataUpdate[], project: string) {
-    const { revalidateTagHook } = getProjectConfig(project) ?? {}
-    for (const update of updates) {
-        revalidateTag(`${project}-asset-${update.id}`, 'max')
-        revalidateTagHook?.(`crow-asset-${update.id}`)
-    }
-    revalidateTagHook?.(`crow-asset-index`)
 }
 

@@ -17,7 +17,7 @@ export async function normalizeOrder({ project }: { project: string }) {
     })
     const result = await applyMetadataUpdates({ project, updates })
     return {
-        success: result,
+        success: result.success,
         payload: {
             count: updates.length,
         },
