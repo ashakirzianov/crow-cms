@@ -217,13 +217,11 @@ export async function handleJsonUpdate(project: string, formData: FormData): Pro
 }
 
 function revalidateTagsForAssets(updates: AssetMetadataUpdate[], project: string) {
-    const projectConfig = getProjectConfig(project)
-    const revalidateAssetHook = projectConfig?.revalidateAsset
-    const revalidateIndexHook = projectConfig?.revalidateAssetIndex
+    const { revalidateTagHook } = getProjectConfig(project) ?? {}
     for (const update of updates) {
-        revalidateTag(`${project}:asset:${update.id}`, 'max')
-        revalidateAssetHook?.(update.id)
+        revalidateTag(`${project}-asset-${update.id}`, 'max')
+        revalidateTagHook?.(`crow-asset-${update.id}`)
     }
-    revalidateIndexHook?.()
+    revalidateTagHook?.(`crow-asset-index`)
 }
 

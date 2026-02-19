@@ -2,8 +2,7 @@ export type ProjectConfig = {
     users: string[],
     secret: string,
     makeExternalLink?(assetId: string): string,
-    revalidateAsset?(assetId: string): Promise<boolean>,
-    revalidateAssetIndex?(): Promise<boolean>,
+    revalidateTagHook?(tag: string): Promise<boolean>,
 }
 
 export function getProjectConfig(project: string): ProjectConfig | undefined {
@@ -16,7 +15,7 @@ const projects: Record<string, ProjectConfig> = {
 
 function makeAlikroConfig(): ProjectConfig {
     const domain = process.env.ALIKRO_DOMAIN ?? 'alikro.art'
-    async function revalidateTag(tag: string) {
+    async function revalidateTagHook(tag: string) {
         try {
             // Call https://{domain}/api/revalidate/{tag} to revalidate the tag
             const res = await fetch(`https://${domain}/api/revalidate/${tag}`, {
@@ -41,11 +40,6 @@ function makeAlikroConfig(): ProjectConfig {
         makeExternalLink(assetId: string) {
             return `https://${domain}/all/${assetId}`
         },
-        async revalidateAsset(assetId: string) {
-            return revalidateTag(`asset:${assetId}`)
-        },
-        async revalidateAssetIndex() {
-            return revalidateTag(`assets:index`)
-        },
+        revalidateTagHook,
     }
 }
