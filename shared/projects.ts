@@ -19,9 +19,7 @@ const projects: Record<string, ProjectConfig> = {
 }
 
 function makeAlikroConfig(): ProjectConfig {
-    const domain = process.env.ALIKRO_DOMAIN ?? 'alikro.art'
-    const isLocal = domain.startsWith('localhost') || domain.startsWith('127.0.0.1')
-    const baseUrl = isLocal ? `http://${domain}` : `https://${domain}`
+    const baseUrl = process.env.ALIKRO_URL ?? 'http://localhost:3000'
     async function revalidateTagHook(tag: string) {
         try {
             const Authorization = `Bearer ${process.env.ALIKRO_SECRET_KEY ?? 'alikro'}`
