@@ -1,5 +1,16 @@
 import { Result } from "./result"
 
+const widths = [320, 480, 640, 768, 960, 1200, 1600, 1920]
+export type VariantSpec = {
+    format?: string,
+    width?: number
+    quality?: number
+}
+export const DEFAULT_VARIANT_SPECS: VariantSpec[] = [
+    {},
+    ...widths.map(width => ({ width })),
+]
+
 export function variantSrc({
     variantName, project,
 }: { variantName: string, project: string }) {
@@ -7,10 +18,9 @@ export function variantSrc({
 }
 
 export function variantFileName({
-    originalName, width, quality, format,
+    originalName, variant: { width, quality, format = 'webp' } = {},
 }: {
-    originalName: string, format: string,
-    width?: number, quality?: number,
+    originalName: string, variant?: VariantSpec,
 }): string {
     return `${originalName}@${width !== undefined ? `w${width}` : ''}${quality !== undefined ? `q${quality}` : ''}.${format}`
 }

@@ -1,6 +1,6 @@
 import sharp from 'sharp'
 import { Result } from './result'
-import { variantFileName } from './variants'
+import { variantFileName, VariantSpec } from './variants'
 
 export type ProcessedImage = {
     buffer: Buffer
@@ -69,19 +69,23 @@ export async function processImageFile(file: File): Promise<Result<{
 }
 
 export async function createImageVariant({
-    buffer, originalName, width, quality,
+    buffer, originalName, variant,
 }: {
     buffer: Buffer,
     originalName: string,
-    width?: number,
-    quality?: number,
-}): Promise<{
-    success: boolean;
-    message: string;
-    image?: ProcessedImage;
-}> {
+    variant: VariantSpec,
+}): Promise<Result<{
+    image: ProcessedImage;
+}>> {
     try {
 
+        const { width, quality, format = 'webp' } = variant
+        if (format !== 'webp') {
+            return {
+                success: false,
+                message: `Unsupported format requested: ${format}. Only "webp" is supported.`
+            }
+        }
         // Use sharp to process the image
         let image = sharp(buffer, {
             animated: true, // Support animated images (e.g. GIFs)
@@ -109,7 +113,7 @@ export async function createImageVariant({
         // Convert to standard Buffer type to avoid type issues
         const processedBuffer = Buffer.from(data)
 
-        const newName = variantFileName({ originalName, width, quality, format: 'webp' })
+        const newName = variantFileName({ originalName, variant })
         return {
             success: true,
             message: 'Image processed successfully',

@@ -33,7 +33,6 @@ export function AssetImage({ project, asset, size, style }: AssetImageProps) {
             src={variantSrc({
                 variantName: variantFileName({
                     originalName: assetFileName(asset),
-                    format: 'webp',
                 }),
                 project,
             })}

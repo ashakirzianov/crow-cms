@@ -3,7 +3,8 @@ import { getAssetIds, storeAsset, acquireVariantLock, releaseVariantLock, isVari
 import { processImageFile, createImageVariant, ProcessedImage } from './images'
 import { uploadToStorage, downloadFromStorage, existsInStorage } from './blobStore'
 import { Result } from './result'
-import { variantFileName } from './variants'
+import { DEFAULT_VARIANT_SPECS, variantFileName, VariantSpec } from './variants'
+import { lazy, Lazy } from './utils'
 
 const UNPUBLISHED_KIND = 'unpublished'
 export const VARIANT_LOCKED_MESSAGE = 'Variant is currently being generated'
@@ -67,12 +68,13 @@ export async function uploadAssetFile({ file, project }: { file: File, project: 
 
         let message = 'Asset uploaded and metadata created successfully'
 
-        // STAGE 3: Generate and upload default variant
-        const variantResult = await generateAndUploadVariant({ buffer: image.buffer, originalName: fileName, project })
+        // STAGE 4: Generate and upload default variant
+
+        const variantResult = await uploadDefaultVariants({ buffer: image.buffer, originalName: fileName, project })
         if (!variantResult.success) {
             console.error('Variant generation/upload failed:', variantResult)
             // Not critical enough to fail the whole upload, so we log the error but continue
-            message += `. However, variant generation/upload failed: ${variantResult.message}`
+            message += `. However, some variant generation/upload failed: ${variantResult.message}`
         }
 
         // Return success with all details
@@ -91,34 +93,68 @@ export async function uploadAssetFile({ file, project }: { file: File, project: 
     }
 }
 
-export async function requestVariant({
-    fileName, project, format, width, quality, downloadExisting,
+async function uploadDefaultVariants({ buffer, originalName, project }: { buffer: Buffer, originalName: string, project: string }): Promise<Result> {
+    const promises = DEFAULT_VARIANT_SPECS.map(variant =>
+        generateAndUploadVariant({ buffer, originalName, project, variant })
+    )
+    const variantResults = await Promise.allSettled(promises)
+    const allResults = variantResults.map((result) => {
+        if (result.status === 'fulfilled') {
+            return result.value
+        } else {
+            return { success: false, message: `Variant generation/upload failed: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}` }
+        }
+    })
+    const failures = allResults.filter(r => !r.success)
+    if (failures.length > 0) {
+        const message = failures.map(f => f.message).join('; ')
+        return {
+            success: false,
+            message,
+        }
+    }
+    return {
+        success: true,
+    }
+}
+
+export async function requestVariants({
+    fileName, project, variants,
 }: {
     fileName: string
     project: string
-    format: string
-    width?: number
-    quality?: number
-    downloadExisting?: boolean
+    variants: VariantSpec[]
+}) {
+    const originalLazy = lazy(
+        () => downloadFromStorage({
+            key: fullKeyForOriginal({ fileName, project })
+        })
+    )
+    const promises = variants.map(variant => requestVariantImpl({ fileName, project, variant, originalLazy }))
+    return Promise.all(promises)
+}
+
+async function requestVariantImpl({
+    fileName, project, variant, originalLazy,
+}: {
+    fileName: string
+    project: string
+    variant: VariantSpec
+    originalLazy: Lazy<Promise<Result<{ buffer: Buffer }>>>
 }): Promise<Result<{
-    key: string
-    buffer?: Buffer
+    key: string,
+    buffer: Buffer | undefined,
 }>> {
-    if (format !== 'webp') {
-        return { success: false, message: `Unsupported format requested: ${format}. Only "webp" is supported.` }
-    }
-    const variantName = variantFileName({ originalName: fileName, width, quality, format })
+    const variantName = variantFileName({ originalName: fileName, variant })
     const variantKey = fullKeyForVariant({ fileName: variantName, project })
 
     if (await existsInStorage({ key: variantKey })) {
-        if (downloadExisting) {
-            const downloadResult = await downloadFromStorage({ key: variantKey })
-            if (!downloadResult.success) {
-                return { success: false, message: 'Failed to retrieve variant from storage' }
-            }
-            return { success: true, message: VARIANT_ALREADY_EXISTS_MESSAGE, key: variantKey, buffer: downloadResult.buffer }
+        return {
+            success: true,
+            message: VARIANT_ALREADY_EXISTS_MESSAGE,
+            key: variantKey,
+            buffer: undefined, // Caller can choose to download if needed
         }
-        return { success: true, message: VARIANT_ALREADY_EXISTS_MESSAGE, key: variantKey }
     }
 
     if (await isVariantLocked({ variantKey })) {
@@ -130,31 +166,29 @@ export async function requestVariant({
     }
 
     try {
-        const originalKey = fullKeyForOriginal({ fileName, project })
-        const downloadResult = await downloadFromStorage({ key: originalKey })
+        const downloadResult = await originalLazy()
         if (!downloadResult.success) {
             return { success: false, message: 'Original file not found in storage' }
         }
 
-        return await generateAndUploadVariant({ buffer: downloadResult.buffer, originalName: fileName, project, width, quality })
+        return await generateAndUploadVariant({ buffer: downloadResult.buffer, originalName: fileName, project, variant })
     } finally {
         await releaseVariantLock({ variantKey })
     }
 }
 
-export async function generateAndUploadVariant({ buffer, originalName, project, width, quality }: {
+async function generateAndUploadVariant({ buffer, originalName, project, variant }: {
     buffer: Buffer
     originalName: string
     project: string
-    width?: number
-    quality?: number
+    variant: VariantSpec
 }): Promise<Result<{
     key: string
     buffer: Buffer
 }>> {
-    const result = await createImageVariant({ buffer, originalName, width, quality })
-    if (!result.success || !result.image) {
-        return { success: false, message: result.message } as const
+    const result = await createImageVariant({ buffer, originalName, variant })
+    if (!result.success) {
+        return result
     }
 
     const upload = await uploadVariantToStorage({

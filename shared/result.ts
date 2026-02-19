@@ -1,4 +1,4 @@
-export type Result<T> =
+export type Result<T = object> =
     | SuccessResult<T>
     | FailureResult
 

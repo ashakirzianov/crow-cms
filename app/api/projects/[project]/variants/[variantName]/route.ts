@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requestVariant, VARIANT_LOCKED_MESSAGE } from "@/shared/fileStore"
+import { requestVariants, VARIANT_LOCKED_MESSAGE } from "@/shared/fileStore"
 import { parseVariantFileName } from "@/shared/variants"
+import { downloadFromStorage } from "@/shared/blobStore"
 
 export async function GET(
     request: NextRequest,
@@ -12,9 +13,10 @@ export async function GET(
         return NextResponse.json({ error: parseResult.message }, { status: 400 })
     }
     const { originalName, width, quality, format } = parseResult
-    const result = await requestVariant({
-        fileName: originalName, downloadExisting: true,
-        project, width, quality, format,
+    const [result] = await requestVariants({
+        fileName: originalName,
+        variants: [{ width, quality, format }],
+        project,
     })
     if (!result.success) {
         if (result.message === VARIANT_LOCKED_MESSAGE) {
@@ -31,11 +33,21 @@ export async function GET(
         return NextResponse.json({ error: "Failed to generate variant" }, { status: 500 })
     }
 
+    let buffer = result.buffer
     if (!result.buffer) {
-        return NextResponse.json({ error: "Variant generated but failed to retrieve file buffer" }, { status: 500 })
+        const downloadResult = await downloadFromStorage({ key: result.key })
+        if (!downloadResult.success) {
+            console.error(`Variant generated but failed to retrieve file buffer for key "${result.key}": ${downloadResult.message}`)
+            return NextResponse.json({ error: "Variant generated but failed to retrieve file buffer" }, { status: 500 })
+        }
+        buffer = downloadResult.buffer
     }
 
-    const buffer = result.buffer
+    if (!buffer) {
+        console.error(`Variant generated but buffer is undefined for key "${result.key}"`)
+        return NextResponse.json({ error: "Variant generated but file buffer is undefined" }, { status: 500 })
+    }
+
     const array = new Uint8Array(buffer)
 
     return new NextResponse(array, {

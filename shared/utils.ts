@@ -33,3 +33,22 @@ export function asserNever(query: never): never {
     return query
 }
 
+export type Lazy<T> = () => T
+export function lazy<T>(fn: () => T): Lazy<T> {
+    let cached: T | undefined = undefined
+    return () => {
+        if (cached === undefined) {
+            cached = fn()
+        }
+        return cached
+    }
+}
+
+export function makeBatches<T>(array: T[], batchSize: number): T[][] {
+    const batches: T[][] = []
+    for (let i = 0; i < array.length; i += batchSize) {
+        batches.push(array.slice(i, i + batchSize))
+    }
+    return batches
+}
+
