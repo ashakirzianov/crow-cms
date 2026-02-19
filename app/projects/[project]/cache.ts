@@ -10,6 +10,7 @@ export function revalidateTagsForAssetUpdates(
     const external = new Set<string>()
     for (const assetId of assetIds) {
         internal.add(tagForAssetId(assetId, project))
+        internal.add(tagForAssetIndex(project))
         external.add(externalTagForAssetId(assetId))
     }
     revalidateTags({
