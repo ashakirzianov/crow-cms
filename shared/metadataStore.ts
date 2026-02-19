@@ -21,7 +21,6 @@ export async function getAllAssetMetadata({ project }: {
     cacheLife('days')
     cacheTagForAssetsIndex(project)
     const allAssets = await loadAllAssetMetadata({ project })
-    allAssets.forEach(asset => cacheTagForAssetId(asset.id, project))
     return allAssets
 }
 

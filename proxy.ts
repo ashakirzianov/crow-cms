@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+const ALIKRO_URL = process.env.ALIKRO_URL ?? 'http://localhost:3000'
+const ALIKRO_DOMAIN = ALIKRO_URL.startsWith('https://')
+    ? ALIKRO_URL.substring('https://'.length)
+    : ALIKRO_URL.substring('http://'.length)
+
 const ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:3001',
-    `https://${process.env.ALIKRO_DOMAIN}`,
-    `https://www.${process.env.ALIKRO_DOMAIN}`,
+    `https://${ALIKRO_DOMAIN}`,
+    `https://www.${ALIKRO_DOMAIN}`,
 ]
 
 function getCorsHeaders(origin: string | null): Record<string, string> | null {
