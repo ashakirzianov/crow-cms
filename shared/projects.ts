@@ -1,4 +1,5 @@
 export type ProjectConfig = {
+    title: string,
     users: string[],
     secret: string,
     makeExternalLink?(assetId: string): string,
@@ -42,6 +43,7 @@ function makeAlikroConfig(): ProjectConfig {
         }
     }
     return {
+        title: 'Alikro',
         users: ['alikro', 'ashakirzianov'],
         secret: process.env.ALIKRO_SECRET_KEY ?? 'alikro',
         makeExternalLink(assetId: string) {

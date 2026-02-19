@@ -3,8 +3,9 @@ import ConsolePage from "./ConsolePage"
 import { sortAssets } from "@/shared/assets"
 import { Authenticator, } from "./Authenticator"
 import { isAuthorized } from "@/shared/auth"
-import { getAllProjects } from "@/shared/projects"
+import { getAllProjects, getProjectConfig } from "@/shared/projects"
 import { Suspense } from "react"
+import type { Metadata } from "next"
 
 type Props = {
     project: string,
@@ -12,6 +13,13 @@ type Props = {
 
 export async function generateStaticParams(): Promise<Props[]> {
     return getAllProjects().map(project => ({ project }))
+}
+
+export async function generateMetadata({ params }: { params: Promise<Props> }): Promise<Metadata> {
+    const { project } = await params
+    const config = getProjectConfig(project)
+    const title = config ? `${config.title} CMS` : 'Crow CMS'
+    return { title }
 }
 
 type Input = {
