@@ -19,13 +19,17 @@ const projects: Record<string, ProjectConfig> = {
 
 function makeAlikroConfig(): ProjectConfig {
     const domain = process.env.ALIKRO_DOMAIN ?? 'alikro.art'
+    const isLocal = domain.startsWith('localhost') || domain.startsWith('127.0.0.1')
+    const baseUrl = isLocal ? `http://${domain}` : `https://${domain}`
     async function revalidateTagHook(tag: string) {
         try {
-            // Call https://{domain}/api/revalidate/{tag} to revalidate the tag
-            const res = await fetch(`https://${domain}/api/revalidate/${tag}`, {
+            const Authorization = `Bearer ${process.env.ALIKRO_SECRET_KEY ?? 'alikro'}`
+            console.log(`Revalidating tag "${tag}" with authorization "${Authorization}"`)
+            // Call {baseUrl}/api/revalidate/{tag} to revalidate the tag
+            const res = await fetch(`${baseUrl}/api/revalidate/${tag}`, {
                 method: 'POST',
                 headers: {
-                    Authorization: `Bearer ${process.env.ALIKRO_SECRET_KEY ?? 'alikro'}`,
+                    Authorization,
                 }
             })
             if (!res.ok) {
@@ -42,7 +46,7 @@ function makeAlikroConfig(): ProjectConfig {
         users: ['alikro', 'ashakirzianov'],
         secret: process.env.ALIKRO_SECRET_KEY ?? 'alikro',
         makeExternalLink(assetId: string) {
-            return `https://${domain}/all/${assetId}`
+            return `${baseUrl}/all/${assetId}`
         },
         revalidateTagHook,
     }
