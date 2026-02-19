@@ -72,7 +72,7 @@ function externalTagForAssetIndex() {
 }
 
 function externalTagForAssetId(id: string) {
-    return `crow-asset-${id}`
+    return `crow-asset-id-${id}`
 }
 
 function revalidateTags({ internal, external, profile, project }: {
