@@ -1,6 +1,5 @@
 import { Redis } from '@upstash/redis'
 import { AssetMetadata, AssetMetadataUpdate } from './assets'
-import { cacheTag } from 'next/cache'
 
 type AssetMetadataValue = Omit<AssetMetadata, 'id'>
 
@@ -23,8 +22,6 @@ export async function getAllAssetMetadata({ project, force }: {
     project: string,
     force?: boolean,
 }) {
-    'use cache'
-    cacheTag(`${project}:assets:index`)
     if (force || !allAssets[project]) {
         allAssets[project] = await loadAllAssetMetadata({ project })
         setTimeout(invalidateCache, 1000 * 60 * 1) // Invalidate cache after 1 minute
@@ -33,8 +30,6 @@ export async function getAllAssetMetadata({ project, force }: {
 }
 
 export async function getAssetMetadata({ id, project }: { id: string, project: string }) {
-    'use cache'
-    cacheTag(`${project}:asset:${id}`)
     if (null !== allAssets) {
         const asset = allAssets[project]?.find((asset) => asset.id === id)
         if (asset) {
@@ -45,8 +40,6 @@ export async function getAssetMetadata({ id, project }: { id: string, project: s
 }
 
 export async function getAssetIds({ project }: { project: string }) {
-    'use cache'
-    cacheTag(`${project}:assets:index`)
     return redis.hkeys(assetsKey(project))
 }
 
