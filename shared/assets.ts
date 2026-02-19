@@ -64,7 +64,9 @@ export function assetDescription(asset: AssetMetadata) {
 }
 
 export function toSafeId(input: string): string {
-    const cleaned = input.replace(/[^\p{L}\p{N}\s-]/gu, '')
+    // Remove ASCII special chars (%, $, @, …) but keep all non-ASCII so
+    // slugify can transliterate them (Cyrillic, Greek, Arabic, etc.)
+    const cleaned = input.replace(/[^\w\s\u0080-\uFFFF-]/g, '')
     return slugify(cleaned, { lower: true, strict: true })
 }
 
