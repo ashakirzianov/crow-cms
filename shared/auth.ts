@@ -2,17 +2,7 @@
 import { cookies } from "next/headers"
 import crypto from "crypto"
 import { NextRequest } from "next/server"
-
-type ProjectData = {
-    users: string[],
-    secret: string,
-}
-const authorizations: Record<string, ProjectData> = {
-    alikro: {
-        users: ['alikro', 'ashakirzianov'],
-        secret: process.env.ALIKRO_SECRET_KEY ?? 'alikro',
-    },
-}
+import { getProjectConfig } from "./projects"
 
 export async function isVariantRequestAuthorized(request: NextRequest, _project: string): Promise<boolean> {
     const variantSecret = process.env.VARIANTS_SECRET
@@ -25,7 +15,7 @@ export async function isVariantRequestAuthorized(request: NextRequest, _project:
 }
 
 export async function isApiAuthorized(request: NextRequest, project: string): Promise<boolean> {
-    const projectData = authorizations[project]
+    const projectData = getProjectConfig(project)
     if (!projectData) {
         console.warn(`No authorization config found for project "${project}", denying access by default`)
         return false
@@ -46,7 +36,7 @@ export async function isAuthorized(project: string) {
     if (username === null) {
         return false
     }
-    const projectData = authorizations[project]
+    const projectData = getProjectConfig(project)
     if (!projectData) {
         console.warn(`No authorization config found for project "${project}", denying access by default`)
         return false
