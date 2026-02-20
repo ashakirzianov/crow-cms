@@ -37,7 +37,6 @@ function makeAlikroConfig(): ProjectConfig {
                 console.error(`Failed to revalidate tag "${tag}". Status: ${res.status}, Response: ${await res.text()}`)
                 return false
             }
-            console.info(`Successfully revalidated tag "${tag}"`)
             return true
         } catch (error) {
             console.error('Error revalidating tag:', error)

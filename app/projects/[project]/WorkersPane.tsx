@@ -1,10 +1,15 @@
 'use client'
 import { Button } from "@/shared/Atoms"
-import { normalizeOrder, generateDefaultVariants } from "./workers"
+import { normalizeOrder, generateDefaultVariants, prettifyAllIds } from "./workers"
 import { useActionState } from "react"
 
 export default function WorkersPane({ project }: { project: string }) {
     return <section>
+        <WorkerButton
+            title="Prettify All IDs"
+            project={project}
+            action={prettifyAllIds}
+        />
         <WorkerButton
             title="Normalize Order"
             project={project}

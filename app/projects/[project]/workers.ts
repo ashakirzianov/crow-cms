@@ -12,11 +12,17 @@ export async function prettifyId({ project, asset }: {
     asset: AssetMetadata,
 }): Promise<Result<{ newAssetId: string }>> {
     if (!asset.title) {
+        console.error(`Asset "${JSON.stringify(asset)}" has no title. Cannot generate ID.`)
         return { success: false, message: 'Asset has no title to generate ID from' }
     }
     const baseId = toSafeId(asset.title)
     if (!baseId) {
+        console.error(`Failed to generate a valid ID from asset title "${asset.title}". Generated base ID is empty.`)
         return { success: false, message: 'Could not generate a valid ID from the asset title' }
+    }
+
+    if (baseId === asset.id) {
+        return { success: true, message: 'ID is already prettified', newAssetId: asset.id }
     }
 
     const existingIds = new Set(await getAssetIds({ project }))
@@ -33,9 +39,37 @@ export async function prettifyId({ project, asset }: {
     }
 
     const changeResult = await changeAssetId({ assetId: asset.id, newAssetId, project })
-    return changeResult.success
-        ? { success: true, newAssetId }
-        : { success: false, message: `Failed to change asset ID: ${changeResult.message}` }
+    if (changeResult.success) {
+        console.info(`Changed asset ID from "${asset.id}" to "${newAssetId}"`)
+        return { success: true, newAssetId }
+    } else {
+        console.error(`Failed to change asset ID from "${asset.id}" to "${newAssetId}": ${changeResult.message}`)
+        return { success: false, message: `Failed to change asset ID: ${changeResult.message}` }
+    }
+}
+
+export async function prettifyAllIds({ project }: { project: string }) {
+    const allAssets = await getAllAssetMetadata({ project, force: true })
+    let changed = 0
+    let unchanged = 0
+    const failureMessages: string[] = []
+
+    for (const asset of allAssets) {
+        const result = await prettifyId({ project, asset })
+        if (!result.success) {
+            console.error(`Failed to prettify ID for asset "${asset.id}": ${result.message}`)
+            failureMessages.push(`Asset "${asset.id}": ${result.message}`)
+        } else if (result.newAssetId === asset.id) {
+            unchanged++
+        } else {
+            changed++
+        }
+    }
+
+    return {
+        success: failureMessages.length === 0,
+        payload: { changed, unchanged, failed: failureMessages.length, failureMessages },
+    }
 }
 
 export async function normalizeOrder({ project }: { project: string }) {
