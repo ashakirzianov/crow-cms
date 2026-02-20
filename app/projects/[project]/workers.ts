@@ -1,10 +1,76 @@
 'use server'
 
-import { AssetMetadataUpdate, sortAssets } from "@/shared/assets"
-import { applyMetadataUpdates, getAllAssetMetadata } from "@/shared/metadataStore"
+import { AssetMetadata, AssetMetadataUpdate, sortAssets, toSafeId } from "@/shared/assets"
+import { applyMetadataUpdates, changeAssetId, getAllAssetMetadata, getAssetIds } from "@/shared/metadataStore"
 import { requestVariants } from "@/shared/fileStore"
 import { makeBatches } from "@/shared/utils"
 import { DEFAULT_VARIANT_SPECS, variantFileName } from "@/shared/variants"
+import { Result } from "@/shared/result"
+
+export async function prettifyId({ project, asset }: {
+    project: string,
+    asset: AssetMetadata,
+}): Promise<Result<{ newAssetId: string }>> {
+    if (!asset.title) {
+        console.error(`Asset "${JSON.stringify(asset)}" has no title. Cannot generate ID.`)
+        return { success: false, message: 'Asset has no title to generate ID from' }
+    }
+    const baseId = toSafeId(asset.title)
+    if (!baseId) {
+        console.error(`Failed to generate a valid ID from asset title "${asset.title}". Generated base ID is empty.`)
+        return { success: false, message: 'Could not generate a valid ID from the asset title' }
+    }
+
+    if (baseId === asset.id) {
+        return { success: true, message: 'ID is already prettified', newAssetId: asset.id }
+    }
+
+    const existingIds = new Set(await getAssetIds({ project }))
+
+    let newAssetId = baseId
+    let suffix = 2
+    while (existingIds.has(newAssetId) && newAssetId !== asset.id) {
+        newAssetId = `${baseId}-${suffix}`
+        suffix++
+    }
+
+    if (newAssetId === asset.id) {
+        return { success: true, newAssetId }
+    }
+
+    const changeResult = await changeAssetId({ assetId: asset.id, newAssetId, project })
+    if (changeResult.success) {
+        console.info(`Changed asset ID from "${asset.id}" to "${newAssetId}"`)
+        return { success: true, newAssetId }
+    } else {
+        console.error(`Failed to change asset ID from "${asset.id}" to "${newAssetId}": ${changeResult.message}`)
+        return { success: false, message: `Failed to change asset ID: ${changeResult.message}` }
+    }
+}
+
+export async function prettifyAllIds({ project }: { project: string }) {
+    const allAssets = await getAllAssetMetadata({ project, force: true })
+    let changed = 0
+    let unchanged = 0
+    const failureMessages: string[] = []
+
+    for (const asset of allAssets) {
+        const result = await prettifyId({ project, asset })
+        if (!result.success) {
+            console.error(`Failed to prettify ID for asset "${asset.id}": ${result.message}`)
+            failureMessages.push(`Asset "${asset.id}": ${result.message}`)
+        } else if (result.newAssetId === asset.id) {
+            unchanged++
+        } else {
+            changed++
+        }
+    }
+
+    return {
+        success: failureMessages.length === 0,
+        payload: { changed, unchanged, failed: failureMessages.length, failureMessages },
+    }
+}
 
 export async function normalizeOrder({ project }: { project: string }) {
     const allAssets = await getAllAssetMetadata({ project, force: true })

@@ -1,4 +1,5 @@
 import { asserNever } from "./utils"
+import slugify from "slugify"
 
 export type Timestamp = number
 export type AssetMetadata = {
@@ -60,6 +61,13 @@ export function assetHeight(asset: AssetMetadata) {
 
 export function assetDescription(asset: AssetMetadata) {
     return `${asset.title} (${asset.year}), ${asset.material}`
+}
+
+export function toSafeId(input: string): string {
+    // Remove ASCII special chars (%, $, @, …) but keep all non-ASCII so
+    // slugify can transliterate them (Cyrillic, Greek, Arabic, etc.)
+    const cleaned = input.replace(/[^\w\s\u0080-\uFFFF-]/g, '')
+    return slugify(cleaned, { lower: true, strict: true })
 }
 
 export function generateAssetId(fileName: string) {

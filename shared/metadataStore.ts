@@ -68,6 +68,28 @@ export async function storeAssets({ assets, project }: { assets: AssetMetadata[]
     return true
 }
 
+// Change an asset's ID - fails if newAssetId already exists
+export async function changeAssetId({ assetId, newAssetId, project }: {
+    assetId: string,
+    newAssetId: string,
+    project: string,
+}): Promise<Result> {
+    const key = assetsKey(project)
+    const existing = await redis.hget<AssetMetadataValue>(key, assetId)
+    if (!existing) {
+        return { success: false, message: `Asset "${assetId}" not found` }
+    }
+    const collision = await redis.hexists(key, newAssetId)
+    if (collision) {
+        return { success: false, message: `Asset "${newAssetId}" already exists` }
+    }
+    await redis.hset(key, { [newAssetId]: existing })
+    await redis.hdel(key, assetId)
+    revalidateTagsForAssetDeletions([assetId], project, 'max')
+    revalidateTagsForAssetCreations([newAssetId], project, 'max')
+    return { success: true }
+}
+
 // Delete a single asset
 export async function deleteAssetMetadata({ id, project }: { id: string, project: string }): Promise<boolean> {
     await redis.hdel(assetsKey(project), id)
