@@ -72,6 +72,34 @@ export async function prettifyAllIds({ project }: { project: string }) {
     }
 }
 
+export async function replaceTag({ project, toReplace, replaceWith }: {
+    project: string,
+    toReplace: string,
+    replaceWith: string,
+}) {
+    const allAssets = await getAllAssetMetadata({ project, force: true })
+    const updates: AssetMetadataUpdate[] = []
+
+    for (const asset of allAssets) {
+        if (asset.tags?.includes(toReplace)) {
+            updates.push({
+                id: asset.id,
+                tags: asset.tags.map(tag => tag === toReplace ? replaceWith : tag),
+            })
+        }
+    }
+
+    if (updates.length === 0) {
+        return { success: true, payload: { replaced: 0 } }
+    }
+
+    const result = await applyMetadataUpdates({ project, updates })
+    return {
+        success: result.success,
+        payload: { replaced: updates.length },
+    }
+}
+
 export async function replaceAllValues({ project, property, toReplace, replaceWith }: {
     project: string,
     property: Exclude<keyof AssetMetadataUpdate, 'id'>,
