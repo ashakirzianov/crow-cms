@@ -1,7 +1,7 @@
 'use server'
 
 import { AssetMetadata, AssetMetadataUpdate, sortAssets, toSafeId } from "@/shared/assets"
-import { applyMetadataUpdates, changeAssetId, getAllAssetMetadata, getAssetIds } from "@/shared/metadataStore"
+import { applyMetadataUpdates, changeAssetId, loadAllAssetMetadata, getAssetIds } from "@/shared/metadataStore"
 import { requestVariants } from "@/shared/fileStore"
 import { makeBatches } from "@/shared/utils"
 import { DEFAULT_VARIANT_SPECS, variantFileName } from "@/shared/variants"
@@ -49,7 +49,7 @@ export async function prettifyId({ project, asset }: {
 }
 
 export async function prettifyAllIds({ project }: { project: string }) {
-    const allAssets = await getAllAssetMetadata({ project, force: true })
+    const allAssets = await loadAllAssetMetadata({ project })
     let changed = 0
     let unchanged = 0
     const failureMessages: string[] = []
@@ -77,7 +77,7 @@ export async function replaceTag({ project, toReplace, replaceWith }: {
     toReplace: string,
     replaceWith: string,
 }) {
-    const allAssets = await getAllAssetMetadata({ project, force: true })
+    const allAssets = await loadAllAssetMetadata({ project })
     const updates: AssetMetadataUpdate[] = []
 
     for (const asset of allAssets) {
@@ -106,7 +106,7 @@ export async function replaceAllValues({ project, property, toReplace, replaceWi
     toReplace: unknown,
     replaceWith: unknown,
 }) {
-    const allAssets = await getAllAssetMetadata({ project, force: true })
+    const allAssets = await loadAllAssetMetadata({ project })
     const updates: AssetMetadataUpdate[] = []
 
     for (const asset of allAssets) {
@@ -127,7 +127,7 @@ export async function replaceAllValues({ project, property, toReplace, replaceWi
 }
 
 export async function normalizeOrder({ project }: { project: string }) {
-    const allAssets = await getAllAssetMetadata({ project, force: true })
+    const allAssets = await loadAllAssetMetadata({ project })
     const sorted = sortAssets(allAssets)
     const updates: AssetMetadataUpdate[] = sorted.map((asset, index) => {
         return {
@@ -147,7 +147,7 @@ export async function normalizeOrder({ project }: { project: string }) {
 const PARALLEL_ASSET_LIMIT = 5
 
 export async function generateDefaultVariants({ project }: { project: string }) {
-    const allAssets = await getAllAssetMetadata({ project, force: true })
+    const allAssets = await loadAllAssetMetadata({ project })
     console.info(`Generating variants for ${allAssets.length} assets in project "${project}"`)
 
     let failures = 0
