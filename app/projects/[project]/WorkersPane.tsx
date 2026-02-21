@@ -1,10 +1,10 @@
 'use client'
 import { Button } from "@/shared/Atoms"
-import { normalizeOrder, generateDefaultVariants, prettifyAllIds } from "./workers"
-import { useActionState } from "react"
+import { normalizeOrder, generateDefaultVariants, prettifyAllIds, replaceAllValues, replaceTag } from "./workers"
+import { useActionState, useRef } from "react"
 
 export default function WorkersPane({ project }: { project: string }) {
-    return <section>
+    return <section className="flex flex-wrap gap-4 items-center">
         <WorkerButton
             title="Prettify All IDs"
             project={project}
@@ -20,7 +20,63 @@ export default function WorkersPane({ project }: { project: string }) {
             project={project}
             action={generateDefaultVariants}
         />
+        <ReplaceMaterialWorker project={project} />
+        <ReplaceTagWorker project={project} />
     </section>
+}
+
+function ReplaceMaterialWorker({ project }: { project: string }) {
+    const toReplaceRef = useRef<HTMLInputElement>(null)
+    const replaceWithRef = useRef<HTMLInputElement>(null)
+
+    type ActionState = { state: 'idle' } | { state: 'success', replaced: number } | { state: 'error' }
+    async function handleAction(): Promise<ActionState> {
+        const toReplace = toReplaceRef.current?.value ?? ''
+        const replaceWith = replaceWithRef.current?.value ?? ''
+        const result = await replaceAllValues({ project, property: 'material', toReplace, replaceWith })
+        return result.success
+            ? { state: 'success', replaced: result.payload.replaced }
+            : { state: 'error' }
+    }
+    const [state, formAction, isPending] = useActionState<ActionState>(handleAction, { state: 'idle' })
+
+    const buttonText = isPending ? 'Pending...'
+        : state.state === 'success' ? `Success! Replaced ${state.replaced}`
+            : state.state === 'error' ? 'Error!'
+                : 'Replace all materials'
+
+    return <form action={formAction} className="flex flex-wrap items-center gap-4">
+        <input ref={toReplaceRef} type="text" placeholder="Replace material" className="border rounded px-2 py-1" />
+        <input ref={replaceWithRef} type="text" placeholder="With material" className="border rounded px-2 py-1" />
+        <Button type="submit" text={buttonText} disabled={isPending} />
+    </form>
+}
+
+function ReplaceTagWorker({ project }: { project: string }) {
+    const toReplaceRef = useRef<HTMLInputElement>(null)
+    const replaceWithRef = useRef<HTMLInputElement>(null)
+
+    type ActionState = { state: 'idle' } | { state: 'success', replaced: number } | { state: 'error' }
+    async function handleAction(): Promise<ActionState> {
+        const toReplace = toReplaceRef.current?.value ?? ''
+        const replaceWith = replaceWithRef.current?.value ?? ''
+        const result = await replaceTag({ project, toReplace, replaceWith })
+        return result.success
+            ? { state: 'success', replaced: result.payload.replaced }
+            : { state: 'error' }
+    }
+    const [state, formAction, isPending] = useActionState<ActionState>(handleAction, { state: 'idle' })
+
+    const buttonText = isPending ? 'Pending...'
+        : state.state === 'success' ? `Success! Replaced ${state.replaced}`
+            : state.state === 'error' ? 'Error!'
+                : 'Replace all tags'
+
+    return <form action={formAction} className="flex flex-wrap items-center gap-4">
+        <input ref={toReplaceRef} type="text" placeholder="Replace tag" className="border rounded px-2 py-1" />
+        <input ref={replaceWithRef} type="text" placeholder="With tag" className="border rounded px-2 py-1" />
+        <Button type="submit" text={buttonText} disabled={isPending} />
+    </form>
 }
 
 function WorkerButton<T>({ title, action, project }: {

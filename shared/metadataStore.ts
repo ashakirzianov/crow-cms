@@ -15,7 +15,6 @@ function assetsKey(project: string) {
 
 export async function getAllAssetMetadata({ project }: {
     project: string,
-    force?: boolean,
 }) {
     'use cache'
     cacheLife('days')
@@ -162,7 +161,7 @@ async function loadAssetMetadata({ id, project }: { id: string, project: string 
 }
 
 // Get all stored assets
-async function loadAllAssetMetadata({ project }: { project: string }): Promise<AssetMetadata[]> {
+export async function loadAllAssetMetadata({ project }: { project: string }): Promise<AssetMetadata[]> {
     const data = await redis.hgetall<AssetsRecord>(assetsKey(project))
     if (!data) {
         return []

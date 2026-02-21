@@ -21,9 +21,9 @@ export async function updateAsset({
         // Prepare update data
         const update: AssetMetadataUpdate = {
             id: id,
-            title: formData.get('title') as string || undefined,
+            title: (formData.get('title') as string | null)?.trim() || undefined,
             year: formData.get('year') ? Number(formData.get('year')) : undefined,
-            material: formData.get('material') as string || undefined,
+            material: (formData.get('material') as string | null)?.trim() || undefined,
         }
 
         // Handle custom kind
