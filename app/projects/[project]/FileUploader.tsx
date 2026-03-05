@@ -2,6 +2,8 @@
 import { UploadProgress } from "@/shared/fileStore"
 import { useRef, useState } from "react"
 import { Button } from "@/shared/Atoms"
+import { hrefForConsole } from "@/shared/href"
+import Link from "next/link"
 
 export default function FileUploader({ project }: { project: string }) {
     const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'complete'>('idle')
@@ -35,7 +37,7 @@ export default function FileUploader({ project }: { project: string }) {
             })
 
             try {
-                await uploadFile(file, project, (progress) => {
+                const { assetId } = await uploadFile(file, project, (progress) => {
                     setUploadProgress(prev => {
                         const next = new Map(prev)
                         next.set(file.name, { fileName: file.name, progress, status: 'uploading' })
@@ -44,7 +46,7 @@ export default function FileUploader({ project }: { project: string }) {
                 })
                 setUploadProgress(prev => {
                     const next = new Map(prev)
-                    next.set(file.name, { fileName: file.name, progress: 100, status: 'success' })
+                    next.set(file.name, { fileName: file.name, progress: 100, status: 'success', assetId })
                     return next
                 })
             } catch (error) {
@@ -121,7 +123,7 @@ export default function FileUploader({ project }: { project: string }) {
                                         {progress.status === 'error' && 'Failed'}
                                     </div>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
                                     <div
                                         className={`h-1.5 rounded-full ${progress.status === 'error'
                                             ? 'bg-red-500'
@@ -132,6 +134,20 @@ export default function FileUploader({ project }: { project: string }) {
                                         style={{ width: `${progress.progress}%` }}
                                     ></div>
                                 </div>
+                                {progress.status === 'success' && progress.assetId && (
+                                    <Link
+                                        href={hrefForConsole({ project, assetId: progress.assetId })}
+                                        className="text-xs text-accent underline truncate block"
+                                        title={progress.assetId}
+                                    >
+                                        {progress.assetId}
+                                    </Link>
+                                )}
+                                {progress.status === 'error' && progress.error && (
+                                    <div className="text-xs text-red-500 truncate" title={progress.error}>
+                                        {progress.error}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -156,7 +172,7 @@ async function uploadFile(
     file: File,
     project: string,
     onProgress: (pct: number) => void,
-): Promise<void> {
+): Promise<{ assetId: string }> {
     // Step 1: Get presigned URL from server
     const presignRes = await fetch(`/api/projects/${project}/upload/presign`, {
         method: 'POST',
@@ -202,4 +218,6 @@ async function uploadFile(
         const data = await confirmRes.json()
         throw new Error(data.error ?? 'Failed to confirm upload')
     }
+    const { assetId } = await confirmRes.json()
+    return { assetId }
 }

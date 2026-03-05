@@ -14,6 +14,7 @@ export type UploadProgress = {
     fileName: string
     progress: number // 0 to 100
     status: 'pending' | 'uploading' | 'success' | 'error'
+    assetId?: string
     error?: string
 }
 
