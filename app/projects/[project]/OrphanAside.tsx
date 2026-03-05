@@ -1,16 +1,17 @@
 'use client'
 
 import Image from "next/image"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { Button } from "@/shared/Atoms"
 import { variantSrc, variantFileName } from "@/shared/variants"
-import { deleteOrphan, findDuplicateOriginals } from "./workers"
+import { deleteOrphan, findDuplicateOriginals, DuplicateFile } from "./workers"
 import { hrefForConsole } from "@/shared/href"
 
 type DuplicateState =
     | { status: 'idle' }
-    | { status: 'found', duplicates: string[] }
+    | { status: 'found', duplicates: DuplicateFile[] }
     | { status: 'error' }
 
 export default function OrphanAside({ project, fileName }: { project: string, fileName: string }) {
@@ -69,8 +70,19 @@ export default function OrphanAside({ project, fileName }: { project: string, fi
                         : <>
                             <div className="text-gray-500 mb-1">Duplicate files ({duplicates.duplicates.length}):</div>
                             <ul className="flex flex-col gap-1">
-                                {duplicates.duplicates.map(name => (
-                                    <li key={name} className="font-mono text-xs break-all bg-gray-50 px-2 py-1 rounded">{name}</li>
+                                {duplicates.duplicates.map(({ fileName: dupName, assetId }) => (
+                                    <li key={dupName} className="font-mono text-xs break-all bg-gray-50 px-2 py-1 rounded flex flex-col gap-0.5">
+                                        <span>{dupName}</span>
+                                        {assetId
+                                            ? <Link
+                                                href={hrefForConsole({ project, assetId })}
+                                                className="text-accent hover:underline not-italic normal-case"
+                                            >
+                                                asset: {assetId}
+                                            </Link>
+                                            : <span className="text-gray-400">orphan</span>
+                                        }
+                                    </li>
                                 ))}
                             </ul>
                         </>

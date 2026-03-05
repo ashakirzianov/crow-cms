@@ -145,22 +145,33 @@ export async function normalizeOrder({ project }: { project: string }) {
     }
 }
 
+export type DuplicateFile = { fileName: string, assetId?: string }
+
 export async function findDuplicateOriginals({ project, fileName }: { project: string, fileName: string }) {
     const prefix = `${project}/originals/`
-    const result = await listObjectsWithEtags({ prefix })
-    if (!result.success) {
-        return { success: false, payload: { duplicates: [] as string[] } }
+    const [listResult, allAssets] = await Promise.all([
+        listObjectsWithEtags({ prefix }),
+        loadAllAssetMetadata({ project }),
+    ])
+
+    if (!listResult.success) {
+        return { success: false, payload: { duplicates: [] as DuplicateFile[] } }
     }
 
     const targetKey = `${prefix}${fileName}`
-    const target = result.objects.find(o => o.key === targetKey)
+    const target = listResult.objects.find(o => o.key === targetKey)
     if (!target) {
-        return { success: false, payload: { duplicates: [] as string[], message: 'File not found in storage' } }
+        return { success: false, payload: { duplicates: [] as DuplicateFile[], message: 'File not found in storage' } }
     }
 
-    const duplicates = result.objects
+    const fileNameToAssetId = new Map(allAssets.map(a => [a.fileName, a.id]))
+
+    const duplicates = listResult.objects
         .filter(o => o.key !== targetKey && o.etag === target.etag)
-        .map(o => o.key.slice(prefix.length))
+        .map(o => {
+            const dupFileName = o.key.slice(prefix.length)
+            return { fileName: dupFileName, assetId: fileNameToAssetId.get(dupFileName) }
+        })
 
     return { success: true, payload: { duplicates } }
 }
