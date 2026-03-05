@@ -3,6 +3,8 @@ import ConsoleHeader from "./ConsoleHeader"
 import clsx from "clsx"
 import { ConsoleGrid } from "./ConsoleGrid"
 import ConsoleAside from "./ConsoleAside"
+import OrphansGrid from "./OrphansGrid"
+import { Suspense } from "react"
 
 export type ConsoleSearchParams = { [key: string]: string | string[] | undefined }
 export default function ConsolePage({
@@ -44,13 +46,18 @@ export default function ConsolePage({
             <div className="flex flex-1 overflow-hidden">
                 {/* Main content */}
                 <main className={clsx("flex-1 overflow-auto p-4 w-full")}>
-                    <ConsoleGrid
-                        project={project}
-                        filter={filter}
-                        assets={filteredAssets}
-                        selectedAssetId={assetId}
-                        shallow={shallow}
-                    />
+                    {action === 'orphans'
+                        ? <Suspense fallback={<div className="text-accent">Loading orphans...</div>}>
+                            <OrphansGrid project={project} />
+                        </Suspense>
+                        : <ConsoleGrid
+                            project={project}
+                            filter={filter}
+                            assets={filteredAssets}
+                            selectedAssetId={assetId}
+                            shallow={shallow}
+                        />
+                    }
                 </main>
 
                 {/* Sticky Aside */}
