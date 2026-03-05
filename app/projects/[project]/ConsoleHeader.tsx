@@ -64,6 +64,7 @@ export default function ConsoleHeader({
                 title="Workers"
                 selected={selectedAction === 'workers'}
                 shallow={shallow}
+                last
             />
             &nbsp;//&nbsp;
             <NavigationLink
