@@ -2,7 +2,6 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { Button } from "@/shared/Atoms"
 import { variantSrc, variantFileName } from "@/shared/variants"
@@ -15,7 +14,6 @@ type DuplicateState =
     | { status: 'error' }
 
 export default function OrphanAside({ project, fileName }: { project: string, fileName: string }) {
-    const router = useRouter()
     const [isDeleting, startDeleteTransition] = useTransition()
     const [isChecking, startCheckTransition] = useTransition()
     const [isCreating, startCreateTransition] = useTransition()
@@ -24,8 +22,6 @@ export default function OrphanAside({ project, fileName }: { project: string, fi
     function handleDelete() {
         startDeleteTransition(async () => {
             await deleteOrphan({ project, fileName })
-            router.push(hrefForConsole({ project, action: 'orphans' }))
-            router.refresh()
         })
     }
 
@@ -39,20 +35,16 @@ export default function OrphanAside({ project, fileName }: { project: string, fi
         })
     }
 
+    function handleCreateAsset() {
+        startCreateTransition(async () => {
+            await createAssetFromOrphan({ project, fileName })
+        })
+    }
+
     const src = variantSrc({
         variantName: variantFileName({ originalName: fileName }),
         project,
     })
-    function handleCreateAsset() {
-        startCreateTransition(async () => {
-            const result = await createAssetFromOrphan({ project, fileName })
-            if (result.success) {
-                router.push(hrefForConsole({ project, assetId: result.assetId }))
-                router.refresh()
-            }
-        })
-    }
-
     const isWorking = isDeleting || isChecking || isCreating
 
     return (

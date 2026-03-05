@@ -7,6 +7,8 @@ import { listKeysWithPrefix, listObjectsWithEtags } from "@/shared/blobStore"
 import { makeBatches } from "@/shared/utils"
 import { DEFAULT_VARIANT_SPECS, variantFileName } from "@/shared/variants"
 import { Result } from "@/shared/result"
+import { redirect } from "next/navigation"
+import { hrefForConsole } from "@/shared/href"
 
 export async function prettifyId({ project, asset }: {
     project: string,
@@ -177,12 +179,16 @@ export async function findDuplicateOriginals({ project, fileName }: { project: s
 }
 
 export async function createAssetFromOrphan({ project, fileName }: { project: string, fileName: string }) {
-    return confirmUploadedAsset({ project, fileName })
+    const result = await confirmUploadedAsset({ project, fileName })
+    if (!result.success) {
+        return result
+    }
+    redirect(hrefForConsole({ project, assetId: result.assetId }))
 }
 
 export async function deleteOrphan({ project, fileName }: { project: string, fileName: string }) {
     await deleteAssetFiles({ fileName, project })
-    return { success: true }
+    redirect(hrefForConsole({ project, action: 'orphans' }))
 }
 
 export async function findOrphanedOriginals({ project }: { project: string }) {
