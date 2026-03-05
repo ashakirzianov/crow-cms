@@ -32,6 +32,7 @@ export default function AssetEditor({
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showCustomKind, setShowCustomKind] = useState(false)
+  const [tagsValue, setTagsValue] = useState(asset.tags?.join(', ') || '')
   const formRef = useRef<HTMLFormElement>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -41,6 +42,7 @@ export default function AssetEditor({
     setMessage(null)
     setIsDeleting(false)
     setShowCustomKind(false)
+    setTagsValue(asset.tags?.join(', ') || '')
   }, [asset.id])
 
   const handleSubmit = async (formData: FormData) => {
@@ -273,12 +275,35 @@ export default function AssetEditor({
           <input
             type="text"
             name="tags"
-            defaultValue={asset.tags?.join(', ') || ''}
+            value={tagsValue}
+            onChange={(e) => setTagsValue(e.target.value)}
             className="w-full p-2 border rounded"
           />
-          <div className="mt-1 text-xs text-gray-500">
-            Available tags: {tags.join(', ')}
-          </div>
+          {tags.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {tags.map(tag => {
+                const currentTags = tagsValue.split(',').map(t => t.trim()).filter(Boolean)
+                const isAdded = currentTags.includes(tag)
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => {
+                      const currentTags = tagsValue.split(',').map(t => t.trim()).filter(Boolean)
+                      if (currentTags.includes(tag)) {
+                        setTagsValue(currentTags.filter(t => t !== tag).join(', '))
+                      } else {
+                        setTagsValue(currentTags.length > 0 ? currentTags.join(', ') + ', ' + tag : tag)
+                      }
+                    }}
+                    className={`text-xs px-2 py-0.5 rounded border transition-colors cursor-pointer ${isAdded ? 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:text-gray-900'}`}
+                  >
+                    {tag}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         <div>
