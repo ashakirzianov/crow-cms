@@ -288,14 +288,15 @@ export default function AssetEditor({
                   <button
                     key={tag}
                     type="button"
-                    disabled={isAdded}
                     onClick={() => {
                       const currentTags = tagsValue.split(',').map(t => t.trim()).filter(Boolean)
-                      if (!currentTags.includes(tag)) {
+                      if (currentTags.includes(tag)) {
+                        setTagsValue(currentTags.filter(t => t !== tag).join(', '))
+                      } else {
                         setTagsValue(currentTags.length > 0 ? currentTags.join(', ') + ', ' + tag : tag)
                       }
                     }}
-                    className={`text-xs px-2 py-0.5 rounded border transition-colors ${isAdded ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-default' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:text-gray-900 cursor-pointer'}`}
+                    className={`text-xs px-2 py-0.5 rounded border transition-colors cursor-pointer ${isAdded ? 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:text-gray-900'}`}
                   >
                     {tag}
                   </button>
