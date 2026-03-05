@@ -77,6 +77,29 @@ export async function listKeysWithPrefix({ prefix }: { prefix: string }): Promis
     }
 }
 
+export async function listObjectsWithEtags({ prefix }: { prefix: string }): Promise<Result<{ objects: { key: string, etag: string }[] }>> {
+    try {
+        const s3Client = getS3Client()
+        if (!s3Client) {
+            return { success: false, message: 'S3 client not initialized. Check AWS credentials.' }
+        }
+        const command = new ListObjectsV2Command({
+            Bucket: S3_CONFIG.BUCKET_NAME,
+            Prefix: prefix,
+        })
+        const response = await s3Client.send(command)
+        const objects = (response.Contents ?? [])
+            .filter(obj => obj.Key && obj.ETag)
+            .map(obj => ({ key: obj.Key!, etag: obj.ETag!.replace(/"/g, '') }))
+        return { success: true, objects }
+    } catch (error) {
+        return {
+            success: false,
+            message: error instanceof Error ? `S3 list error: ${error.message}` : 'Unknown S3 error',
+        }
+    }
+}
+
 /**
  * Generates a presigned URL for direct client-to-S3 upload
  * NOTE: The S3 bucket must have CORS configured to allow PUT from the app's origin

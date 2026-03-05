@@ -3,7 +3,7 @@
 import { AssetMetadata, AssetMetadataUpdate, sortAssets, toSafeId } from "@/shared/assets"
 import { applyMetadataUpdates, changeAssetId, loadAllAssetMetadata, getAssetIds } from "@/shared/metadataStore"
 import { requestVariants, deleteAssetFiles } from "@/shared/fileStore"
-import { listKeysWithPrefix } from "@/shared/blobStore"
+import { listKeysWithPrefix, listObjectsWithEtags } from "@/shared/blobStore"
 import { makeBatches } from "@/shared/utils"
 import { DEFAULT_VARIANT_SPECS, variantFileName } from "@/shared/variants"
 import { Result } from "@/shared/result"
@@ -143,6 +143,26 @@ export async function normalizeOrder({ project }: { project: string }) {
             count: updates.length,
         },
     }
+}
+
+export async function findDuplicateOriginals({ project, fileName }: { project: string, fileName: string }) {
+    const prefix = `${project}/originals/`
+    const result = await listObjectsWithEtags({ prefix })
+    if (!result.success) {
+        return { success: false, payload: { duplicates: [] as string[] } }
+    }
+
+    const targetKey = `${prefix}${fileName}`
+    const target = result.objects.find(o => o.key === targetKey)
+    if (!target) {
+        return { success: false, payload: { duplicates: [] as string[], message: 'File not found in storage' } }
+    }
+
+    const duplicates = result.objects
+        .filter(o => o.key !== targetKey && o.etag === target.etag)
+        .map(o => o.key.slice(prefix.length))
+
+    return { success: true, payload: { duplicates } }
 }
 
 export async function deleteOrphan({ project, fileName }: { project: string, fileName: string }) {
