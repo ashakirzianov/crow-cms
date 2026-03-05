@@ -1,6 +1,6 @@
 'use client'
 import { Button } from "@/shared/Atoms"
-import { normalizeOrder, generateDefaultVariants, prettifyAllIds, replaceAllValues, replaceTag, findOrphanedOriginals } from "./workers"
+import { normalizeOrder, generateDefaultVariants, prettifyAllIds, replaceAllValues, replaceTag, findOrphanedOriginals, findOrphanedVariants } from "./workers"
 import { useRef, useState, useTransition } from "react"
 
 export default function WorkersPane({ project }: { project: string }) {
@@ -41,6 +41,22 @@ export default function WorkersPane({ project }: { project: string }) {
                 disabled={isWorking}
                 onStart={onStart}
                 onFinish={onFinish}
+            />
+            <WorkerButton
+                title="Find Orphaned Variants"
+                project={project}
+                action={findOrphanedVariants}
+                disabled={isWorking}
+                onStart={onStart}
+                onFinish={onFinish}
+                payloadToMessage={({ orphans }) => {
+                    if (orphans.length === 0) return 'No orphaned variants found'
+                    const originals = [...new Set(orphans.map(v => {
+                        const lastAt = v.lastIndexOf('@')
+                        return lastAt !== -1 ? v.substring(0, lastAt) : v
+                    }))]
+                    return `Found ${orphans.length} orphaned variant(s) from ${originals.length} original(s):\n${originals.map(o => `  ${o}`).join('\n')}`
+                }}
             />
             <WorkerButton
                 title="Find Orphaned Originals"

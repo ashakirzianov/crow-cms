@@ -191,6 +191,37 @@ export async function deleteOrphan({ project, fileName }: { project: string, fil
     redirect(hrefForConsole({ project, action: 'orphans' }))
 }
 
+export async function findOrphanedVariants({ project }: { project: string }) {
+    const originalsPrefix = `${project}/originals/`
+    const variantsPrefix = `${project}/variants/`
+
+    const [originalsResult, variantsResult] = await Promise.all([
+        listKeysWithPrefix({ prefix: originalsPrefix }),
+        listKeysWithPrefix({ prefix: variantsPrefix }),
+    ])
+
+    if (!originalsResult.success) {
+        return { success: false, payload: { orphans: [] as string[] } }
+    }
+    if (!variantsResult.success) {
+        return { success: false, payload: { orphans: [] as string[] } }
+    }
+
+    const originalFileNames = new Set(
+        originalsResult.keys.map(key => key.slice(originalsPrefix.length))
+    )
+
+    const orphans = variantsResult.keys
+        .map(key => key.slice(variantsPrefix.length))
+        .filter(variantName => {
+            const lastAt = variantName.lastIndexOf('@')
+            const originalName = lastAt !== -1 ? variantName.substring(0, lastAt) : variantName
+            return !originalFileNames.has(originalName)
+        })
+
+    return { success: true, payload: { orphans } }
+}
+
 export async function findOrphanedOriginals({ project }: { project: string }) {
     const prefix = `${project}/originals/`
     const [listResult, allAssets] = await Promise.all([
