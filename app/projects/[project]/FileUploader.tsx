@@ -82,7 +82,7 @@ export default function FileUploader({ project }: { project: string }) {
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 className="hidden"
-                accept=".jpg,.jpeg,.png,.gif"
+                accept=".jpg,.jpeg,.png,.gif,.tif,.tiff"
                 multiple
             />
 
