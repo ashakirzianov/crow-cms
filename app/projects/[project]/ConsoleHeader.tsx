@@ -66,6 +66,17 @@ export default function ConsoleHeader({
                 shallow={shallow}
                 last
             />
+            &nbsp;//&nbsp;
+            <NavigationLink
+                href={hrefForConsole({
+                    project,
+                    action: 'orphans',
+                })}
+                title="Orphans"
+                selected={selectedAction === 'orphans' || selectedAction === 'orphan'}
+                shallow={shallow}
+                last
+            />
         </nav>
     )
 }

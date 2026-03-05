@@ -2,14 +2,15 @@
 import { UploadProgress } from "@/shared/fileStore"
 import { useRef, useState } from "react"
 import { Button } from "@/shared/Atoms"
-import { uploadFile } from "./actions"
+import { hrefForConsole } from "@/shared/href"
+import Link from "next/link"
+import { getPresignedUpload, confirmUpload } from "./upload-actions"
 
 export default function FileUploader({ project }: { project: string }) {
     const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'complete'>('idle')
     const [uploadProgress, setUploadProgress] = useState<Map<string, UploadProgress>>(new Map())
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    // Stats for the upload process
     const totalFiles = uploadProgress.size
     const completedFiles = Array.from(uploadProgress.values()).filter(p => p.status === 'success').length
     const failedFiles = Array.from(uploadProgress.values()).filter(p => p.status === 'error').length
@@ -22,98 +23,48 @@ export default function FileUploader({ project }: { project: string }) {
         const files = e.target.files
         if (!files || files.length === 0) return
 
-        // Reset the progress state
         setUploadState('uploading')
         const newProgressMap = new Map<string, UploadProgress>()
-
-        // Initialize progress for all files
         Array.from(files).forEach(file => {
-            newProgressMap.set(file.name, {
-                fileName: file.name,
-                progress: 0,
-                status: 'pending'
-            })
+            newProgressMap.set(file.name, { fileName: file.name, progress: 0, status: 'pending' })
         })
         setUploadProgress(newProgressMap)
 
-        // Start uploading files one by one
         for (const file of Array.from(files)) {
+            setUploadProgress(prev => {
+                const next = new Map(prev)
+                next.set(file.name, { fileName: file.name, progress: 0, status: 'uploading' })
+                return next
+            })
+
             try {
-                // Update progress to uploading
-                setUploadProgress(prev => {
-                    const newMap = new Map(prev)
-                    newMap.set(file.name, {
-                        fileName: file.name,
-                        progress: 10,
-                        status: 'uploading'
-                    })
-                    return newMap
-                })
-
-                // Simulate progress while uploading to server
-                const progressUpdateInterval = setInterval(() => {
+                const { assetId } = await uploadFile(file, project, (progress) => {
                     setUploadProgress(prev => {
-                        const existingProgress = prev.get(file.name)
-                        if (existingProgress && existingProgress.status === 'uploading' && existingProgress.progress < 90) {
-                            const newMap = new Map(prev)
-                            newMap.set(file.name, {
-                                ...existingProgress,
-                                progress: Math.min(90, existingProgress.progress + Math.floor(Math.random() * 10) + 5)
-                            })
-                            return newMap
-                        }
-                        return prev
+                        const next = new Map(prev)
+                        next.set(file.name, { fileName: file.name, progress, status: 'uploading' })
+                        return next
                     })
-                }, 300)
-
-                // Create form data for the file
-                const formData = new FormData()
-                formData.append('file', file)
-
-                // Upload to server using the server action
-                const result = await uploadFile({ project, formData })
-
-                // Clear the progress interval
-                clearInterval(progressUpdateInterval)
-
-                // Update final progress based on server response
+                })
                 setUploadProgress(prev => {
-                    const newMap = new Map(prev)
-                    if (result.success) {
-                        newMap.set(file.name, {
-                            fileName: file.name,
-                            progress: 100,
-                            status: 'success'
-                        })
-                    } else {
-                        newMap.set(file.name, {
-                            fileName: file.name,
-                            progress: 100,
-                            status: 'error',
-                            error: result.message
-                        })
-                    }
-                    return newMap
+                    const next = new Map(prev)
+                    next.set(file.name, { fileName: file.name, progress: 100, status: 'success', assetId })
+                    return next
                 })
             } catch (error) {
-                console.error(`Error uploading ${file.name}:`, error)
-                // Update progress to error
                 setUploadProgress(prev => {
-                    const newMap = new Map(prev)
-                    newMap.set(file.name, {
+                    const next = new Map(prev)
+                    next.set(file.name, {
                         fileName: file.name,
                         progress: 100,
                         status: 'error',
-                        error: error instanceof Error ? error.message : 'Unknown error'
+                        error: error instanceof Error ? error.message : 'Unknown error',
                     })
-                    return newMap
+                    return next
                 })
             }
         }
 
         setUploadState('complete')
-
-        // Reset the file input
         if (fileInputRef.current) {
             fileInputRef.current.value = ''
         }
@@ -126,7 +77,6 @@ export default function FileUploader({ project }: { project: string }) {
 
     return (
         <div className="mb-6">
-            {/* Hidden file input */}
             <input
                 type="file"
                 ref={fileInputRef}
@@ -136,7 +86,6 @@ export default function FileUploader({ project }: { project: string }) {
                 multiple
             />
 
-            {/* Upload button */}
             {uploadState === 'idle' && (
                 <Button
                     onClick={handleFileSelect}
@@ -144,7 +93,6 @@ export default function FileUploader({ project }: { project: string }) {
                 />
             )}
 
-            {/* Upload progress */}
             {uploadState !== 'idle' && (
                 <div>
                     <div className="flex justify-between mb-2">
@@ -155,7 +103,6 @@ export default function FileUploader({ project }: { project: string }) {
                         </div>
                     </div>
 
-                    {/* Overall progress bar */}
                     <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
                         <div
                             className="bg-accent h-2.5 rounded-full"
@@ -163,7 +110,6 @@ export default function FileUploader({ project }: { project: string }) {
                         ></div>
                     </div>
 
-                    {/* File grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-4 max-h-80 overflow-y-auto">
                         {Array.from(uploadProgress).map(([fileName, progress]) => (
                             <div key={fileName} className="border rounded-md p-3">
@@ -178,9 +124,7 @@ export default function FileUploader({ project }: { project: string }) {
                                         {progress.status === 'error' && 'Failed'}
                                     </div>
                                 </div>
-
-                                {/* Individual file progress bar */}
-                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
                                     <div
                                         className={`h-1.5 rounded-full ${progress.status === 'error'
                                             ? 'bg-red-500'
@@ -191,18 +135,27 @@ export default function FileUploader({ project }: { project: string }) {
                                         style={{ width: `${progress.progress}%` }}
                                     ></div>
                                 </div>
+                                {progress.status === 'success' && progress.assetId && (
+                                    <Link
+                                        href={hrefForConsole({ project, assetId: progress.assetId })}
+                                        className="text-xs text-accent underline truncate block"
+                                        title={progress.assetId}
+                                    >
+                                        {progress.assetId}
+                                    </Link>
+                                )}
+                                {progress.status === 'error' && progress.error && (
+                                    <div className="text-xs text-red-500 truncate" title={progress.error}>
+                                        {progress.error}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
 
-                    {/* Action buttons */}
                     <div className="flex justify-end space-x-3">
                         {uploadState === 'complete' && (
-                            <Button
-                                text="Reset"
-                                onClick={resetUpload}
-                                kind="gray"
-                            />
+                            <Button text="Reset" onClick={resetUpload} kind="gray" />
                         )}
                         <Button
                             text={uploadState === 'complete' ? 'Upload More' : 'Add Files'}
@@ -214,4 +167,44 @@ export default function FileUploader({ project }: { project: string }) {
             )}
         </div>
     )
+}
+
+async function uploadFile(
+    file: File,
+    project: string,
+    onProgress: (pct: number) => void,
+): Promise<{ assetId: string }> {
+    // Step 1: Get presigned URL from server
+    const { presignedUrl, fileName } = await getPresignedUpload({
+        project,
+        fileName: file.name,
+        contentType: file.type,
+    })
+
+    // Step 2: Upload directly to S3 using XHR for real progress
+    await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+                // Map S3 upload progress to 0–90%
+                onProgress(Math.round((e.loaded / e.total) * 90))
+            }
+        })
+        xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve()
+            } else {
+                reject(new Error(`S3 upload failed with status ${xhr.status}`))
+            }
+        })
+        xhr.addEventListener('error', () => reject(new Error('Network error during upload')))
+        xhr.open('PUT', presignedUrl)
+        xhr.setRequestHeader('Content-Type', file.type)
+        xhr.send(file)
+    })
+
+    // Step 3: Notify server to process the uploaded file
+    onProgress(95)
+    const { assetId } = await confirmUpload({ project, fileName })
+    return { assetId }
 }

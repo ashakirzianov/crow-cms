@@ -2,10 +2,13 @@
 
 import { AssetMetadata, AssetMetadataUpdate, sortAssets, toSafeId } from "@/shared/assets"
 import { applyMetadataUpdates, changeAssetId, loadAllAssetMetadata, getAssetIds } from "@/shared/metadataStore"
-import { requestVariants } from "@/shared/fileStore"
+import { requestVariants, deleteAssetFiles, confirmUploadedAsset } from "@/shared/fileStore"
+import { listKeysWithPrefix, listObjectsWithEtags } from "@/shared/blobStore"
 import { makeBatches } from "@/shared/utils"
 import { DEFAULT_VARIANT_SPECS, variantFileName } from "@/shared/variants"
 import { Result } from "@/shared/result"
+import { redirect } from "next/navigation"
+import { hrefForConsole } from "@/shared/href"
 
 export async function prettifyId({ project, asset }: {
     project: string,
@@ -142,6 +145,100 @@ export async function normalizeOrder({ project }: { project: string }) {
             count: updates.length,
         },
     }
+}
+
+export type DuplicateFile = { fileName: string, assetId?: string }
+
+export async function findDuplicateOriginals({ project, fileName }: { project: string, fileName: string }) {
+    const prefix = `${project}/originals/`
+    const [listResult, allAssets] = await Promise.all([
+        listObjectsWithEtags({ prefix }),
+        loadAllAssetMetadata({ project }),
+    ])
+
+    if (!listResult.success) {
+        return { success: false, payload: { duplicates: [] as DuplicateFile[] } }
+    }
+
+    const targetKey = `${prefix}${fileName}`
+    const target = listResult.objects.find(o => o.key === targetKey)
+    if (!target) {
+        return { success: false, payload: { duplicates: [] as DuplicateFile[], message: 'File not found in storage' } }
+    }
+
+    const fileNameToAssetId = new Map(allAssets.map(a => [a.fileName, a.id]))
+
+    const duplicates = listResult.objects
+        .filter(o => o.key !== targetKey && o.etag === target.etag)
+        .map(o => {
+            const dupFileName = o.key.slice(prefix.length)
+            return { fileName: dupFileName, assetId: fileNameToAssetId.get(dupFileName) }
+        })
+
+    return { success: true, payload: { duplicates } }
+}
+
+export async function createAssetFromOrphan({ project, fileName }: { project: string, fileName: string }) {
+    const result = await confirmUploadedAsset({ project, fileName })
+    if (!result.success) {
+        return result
+    }
+    redirect(hrefForConsole({ project, assetId: result.assetId }))
+}
+
+export async function deleteOrphan({ project, fileName }: { project: string, fileName: string }) {
+    await deleteAssetFiles({ fileName, project })
+    redirect(hrefForConsole({ project, action: 'orphans' }))
+}
+
+export async function findOrphanedVariants({ project }: { project: string }) {
+    const originalsPrefix = `${project}/originals/`
+    const variantsPrefix = `${project}/variants/`
+
+    const [originalsResult, variantsResult] = await Promise.all([
+        listKeysWithPrefix({ prefix: originalsPrefix }),
+        listKeysWithPrefix({ prefix: variantsPrefix }),
+    ])
+
+    if (!originalsResult.success) {
+        return { success: false, payload: { orphans: [] as string[] } }
+    }
+    if (!variantsResult.success) {
+        return { success: false, payload: { orphans: [] as string[] } }
+    }
+
+    const originalFileNames = new Set(
+        originalsResult.keys.map(key => key.slice(originalsPrefix.length))
+    )
+
+    const orphans = variantsResult.keys
+        .map(key => key.slice(variantsPrefix.length))
+        .filter(variantName => {
+            const lastAt = variantName.lastIndexOf('@')
+            const originalName = lastAt !== -1 ? variantName.substring(0, lastAt) : variantName
+            return !originalFileNames.has(originalName)
+        })
+
+    return { success: true, payload: { orphans } }
+}
+
+export async function findOrphanedOriginals({ project }: { project: string }) {
+    const prefix = `${project}/originals/`
+    const [listResult, allAssets] = await Promise.all([
+        listKeysWithPrefix({ prefix }),
+        loadAllAssetMetadata({ project }),
+    ])
+
+    if (!listResult.success) {
+        return { success: false, payload: { orphans: [] as string[] } }
+    }
+
+    const assetFileNames = new Set(allAssets.map(a => a.fileName))
+    const orphans = listResult.keys
+        .map(key => key.slice(prefix.length))
+        .filter(fileName => !assetFileNames.has(fileName))
+
+    return { success: true, payload: { orphans } }
 }
 
 const PARALLEL_ASSET_LIMIT = 5

@@ -68,6 +68,32 @@ export async function processImageFile(file: File): Promise<Result<{
     }
 }
 
+export async function getImageInfo(buffer: Buffer): Promise<Result<{
+    width: number
+    height: number
+    format: string
+    contentType: string
+}>> {
+    try {
+        const metadata = await sharp(buffer).rotate().metadata()
+        if (!metadata.width || !metadata.height || !metadata.format) {
+            return { success: false, message: 'Could not determine image dimensions or format' }
+        }
+        return {
+            success: true,
+            width: metadata.width,
+            height: metadata.height,
+            format: metadata.format,
+            contentType: `image/${metadata.format}`,
+        }
+    } catch (error) {
+        return {
+            success: false,
+            message: error instanceof Error ? `Image processing error: ${error.message}` : 'Unknown error',
+        }
+    }
+}
+
 export async function createImageVariant({
     buffer, originalName, variant,
 }: {

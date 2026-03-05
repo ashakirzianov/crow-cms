@@ -3,16 +3,18 @@ import FileUploader from "./FileUploader"
 import { JsonEditor } from "./JsonEditor"
 import AssetEditor from "./AssetEditor"
 import WorkersPane from "./WorkersPane"
+import OrphanAside from "./OrphanAside"
 
 export default function ConsoleAside({
     project,
-    assets, query, action, assetId,
+    assets, query, action, assetId, orphanFileName,
 }: {
     project: string,
     assets: AssetMetadata[],
     query: AssetQuery,
     action: string | undefined,
     assetId: string | undefined,
+    orphanFileName: string | undefined,
 }) {
     switch (action) {
         case 'upload':
@@ -39,6 +41,9 @@ export default function ConsoleAside({
             />
         case 'workers':
             return <WorkersPane project={project} />
+        case 'orphan':
+            if (!orphanFileName) return null
+            return <OrphanAside key={orphanFileName} project={project} fileName={orphanFileName} />
         default:
             return null
     }
