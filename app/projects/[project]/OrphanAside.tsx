@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { Button } from "@/shared/Atoms"
 import { variantSrc, variantFileName } from "@/shared/variants"
-import { deleteOrphan, findDuplicateOriginals, DuplicateFile } from "./workers"
+import { deleteOrphan, findDuplicateOriginals, createAssetFromOrphan, DuplicateFile } from "./workers"
 import { hrefForConsole } from "@/shared/href"
 
 type DuplicateState =
@@ -18,6 +18,7 @@ export default function OrphanAside({ project, fileName }: { project: string, fi
     const router = useRouter()
     const [isDeleting, startDeleteTransition] = useTransition()
     const [isChecking, startCheckTransition] = useTransition()
+    const [isCreating, startCreateTransition] = useTransition()
     const [duplicates, setDuplicates] = useState<DuplicateState>({ status: 'idle' })
 
     function handleDelete() {
@@ -42,7 +43,17 @@ export default function OrphanAside({ project, fileName }: { project: string, fi
         variantName: variantFileName({ originalName: fileName }),
         project,
     })
-    const isWorking = isDeleting || isChecking
+    function handleCreateAsset() {
+        startCreateTransition(async () => {
+            const result = await createAssetFromOrphan({ project, fileName })
+            if (result.success) {
+                router.push(hrefForConsole({ project, assetId: result.assetId }))
+                router.refresh()
+            }
+        })
+    }
+
+    const isWorking = isDeleting || isChecking || isCreating
 
     return (
         <div className="flex flex-col gap-4">
@@ -56,6 +67,12 @@ export default function OrphanAside({ project, fileName }: { project: string, fi
                     kind="gray"
                     disabled={isWorking}
                     onClick={handleCheckDuplicates}
+                />
+                <Button
+                    text={isCreating ? 'Creating...' : 'Create Asset'}
+                    kind="gray"
+                    disabled={isWorking}
+                    onClick={handleCreateAsset}
                 />
                 <Button
                     text={isDeleting ? 'Deleting...' : 'Delete'}
