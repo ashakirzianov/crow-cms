@@ -1,7 +1,7 @@
 import { AssetMetadata, generateAssetId, splitFileNameAndExtension } from './assets'
 import { getAssetIds, storeAsset, acquireVariantLock, releaseVariantLock, isVariantLocked } from './metadataStore'
 import { processImageFile, createImageVariant, getImageInfo, ProcessedImage } from './images'
-import { uploadToStorage, downloadFromStorage, existsInStorage, getPresignedUploadUrl, deleteFromStorage } from './blobStore'
+import { uploadToStorage, downloadFromStorage, existsInStorage, getPresignedUploadUrl, deleteFromStorage, listKeysWithPrefix } from './blobStore'
 import { Result } from './result'
 import { DEFAULT_VARIANT_SPECS, variantFileName, VariantSpec } from './variants'
 import { lazy, Lazy } from './utils'
@@ -22,13 +22,34 @@ export async function deleteAssetFiles({ fileName, project }: {
     fileName: string
     project: string
 }): Promise<void> {
-    const keys = [
-        fullKeyForOriginal({ fileName, project }),
-        ...DEFAULT_VARIANT_SPECS.map(variant =>
-            fullKeyForVariant({ fileName: variantFileName({ originalName: fileName, variant }), project })
-        ),
-    ]
-    await Promise.allSettled(keys.map(key => deleteFromStorage({ key })))
+    // Delete original
+    const originalKey = fullKeyForOriginal({ fileName, project })
+    const originalResult = await deleteFromStorage({ key: originalKey })
+    if (!originalResult.success) {
+        console.error(`Failed to delete original S3 file "${originalKey}":`, originalResult.message)
+    }
+
+    // Delete all variants whose keys start with "[fileName]@"
+    const variantPrefix = `${project}/variants/${fileName}@`
+    const listResult = await listKeysWithPrefix({ prefix: variantPrefix })
+    if (!listResult.success) {
+        console.error(`Failed to list variant S3 files with prefix "${variantPrefix}":`, listResult.message)
+        return
+    }
+    console.log(`Deleting ${listResult.keys.length} variant(s) with prefix "${variantPrefix}"`)
+    const variantResults = await Promise.allSettled(
+        listResult.keys.map(key => deleteFromStorage({ key }))
+    )
+    variantResults.forEach((result, i) => {
+        const key = listResult.keys[i]
+        if (result.status === 'fulfilled') {
+            if (!result.value.success) {
+                console.error(`Failed to delete variant S3 file "${key}":`, result.value.message)
+            }
+        } else {
+            console.error(`Exception deleting variant S3 file "${key}":`, result.reason)
+        }
+    })
 }
 
 /**

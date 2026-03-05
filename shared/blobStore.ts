@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { Result } from './result'
 
@@ -52,6 +52,27 @@ export async function deleteFromStorage({ key }: { key: string }): Promise<Resul
         return {
             success: false,
             message: error instanceof Error ? `S3 delete error: ${error.message}` : 'Unknown S3 error',
+        }
+    }
+}
+
+export async function listKeysWithPrefix({ prefix }: { prefix: string }): Promise<Result<{ keys: string[] }>> {
+    try {
+        const s3Client = getS3Client()
+        if (!s3Client) {
+            return { success: false, message: 'S3 client not initialized. Check AWS credentials.' }
+        }
+        const command = new ListObjectsV2Command({
+            Bucket: S3_CONFIG.BUCKET_NAME,
+            Prefix: prefix,
+        })
+        const response = await s3Client.send(command)
+        const keys = (response.Contents ?? []).map(obj => obj.Key).filter((k): k is string => Boolean(k))
+        return { success: true, keys }
+    } catch (error) {
+        return {
+            success: false,
+            message: error instanceof Error ? `S3 list error: ${error.message}` : 'Unknown S3 error',
         }
     }
 }
