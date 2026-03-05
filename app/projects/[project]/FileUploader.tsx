@@ -4,6 +4,7 @@ import { useRef, useState } from "react"
 import { Button } from "@/shared/Atoms"
 import { hrefForConsole } from "@/shared/href"
 import Link from "next/link"
+import { getPresignedUpload, confirmUpload } from "./upload-actions"
 
 export default function FileUploader({ project }: { project: string }) {
     const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'complete'>('idle')
@@ -174,16 +175,11 @@ async function uploadFile(
     onProgress: (pct: number) => void,
 ): Promise<{ assetId: string }> {
     // Step 1: Get presigned URL from server
-    const presignRes = await fetch(`/api/projects/${project}/upload/presign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName: file.name, contentType: file.type }),
+    const { presignedUrl, fileName } = await getPresignedUpload({
+        project,
+        fileName: file.name,
+        contentType: file.type,
     })
-    if (!presignRes.ok) {
-        const data = await presignRes.json()
-        throw new Error(data.error ?? 'Failed to get upload URL')
-    }
-    const { presignedUrl, fileName } = await presignRes.json()
 
     // Step 2: Upload directly to S3 using XHR for real progress
     await new Promise<void>((resolve, reject) => {
@@ -209,15 +205,6 @@ async function uploadFile(
 
     // Step 3: Notify server to process the uploaded file
     onProgress(95)
-    const confirmRes = await fetch(`/api/projects/${project}/upload/confirm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName }),
-    })
-    if (!confirmRes.ok) {
-        const data = await confirmRes.json()
-        throw new Error(data.error ?? 'Failed to confirm upload')
-    }
-    const { assetId } = await confirmRes.json()
+    const { assetId } = await confirmUpload({ project, fileName })
     return { assetId }
 }
