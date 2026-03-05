@@ -3,6 +3,7 @@
 import { AssetMetadata, AssetMetadataUpdate, sortAssets, toSafeId } from "@/shared/assets"
 import { applyMetadataUpdates, changeAssetId, loadAllAssetMetadata, getAssetIds } from "@/shared/metadataStore"
 import { requestVariants } from "@/shared/fileStore"
+import { listKeysWithPrefix } from "@/shared/blobStore"
 import { makeBatches } from "@/shared/utils"
 import { DEFAULT_VARIANT_SPECS, variantFileName } from "@/shared/variants"
 import { Result } from "@/shared/result"
@@ -142,6 +143,25 @@ export async function normalizeOrder({ project }: { project: string }) {
             count: updates.length,
         },
     }
+}
+
+export async function findOrphanedOriginals({ project }: { project: string }) {
+    const prefix = `${project}/originals/`
+    const [listResult, allAssets] = await Promise.all([
+        listKeysWithPrefix({ prefix }),
+        loadAllAssetMetadata({ project }),
+    ])
+
+    if (!listResult.success) {
+        return { success: false, payload: { orphans: [] as string[], message: listResult.message } }
+    }
+
+    const assetFileNames = new Set(allAssets.map(a => a.fileName))
+    const orphans = listResult.keys
+        .map(key => key.slice(prefix.length))
+        .filter(fileName => !assetFileNames.has(fileName))
+
+    return { success: true, payload: { orphans } }
 }
 
 const PARALLEL_ASSET_LIMIT = 5

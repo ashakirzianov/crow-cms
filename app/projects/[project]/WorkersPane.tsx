@@ -1,6 +1,6 @@
 'use client'
 import { Button } from "@/shared/Atoms"
-import { normalizeOrder, generateDefaultVariants, prettifyAllIds, replaceAllValues, replaceTag } from "./workers"
+import { normalizeOrder, generateDefaultVariants, prettifyAllIds, replaceAllValues, replaceTag, findOrphanedOriginals } from "./workers"
 import { useRef, useState, useTransition } from "react"
 
 export default function WorkersPane({ project }: { project: string }) {
@@ -42,11 +42,23 @@ export default function WorkersPane({ project }: { project: string }) {
                 onStart={onStart}
                 onFinish={onFinish}
             />
+            <WorkerButton
+                title="Find Orphaned Originals"
+                project={project}
+                action={findOrphanedOriginals}
+                disabled={isWorking}
+                onStart={onStart}
+                onFinish={onFinish}
+                payloadToMessage={({ orphans }) => orphans.length === 0
+                    ? 'No orphaned files found'
+                    : `Found ${orphans.length} orphaned file(s):\n${orphans.map(f => `  ${f}`).join('\n')}`
+                }
+            />
             <ReplaceMaterialWorker project={project} disabled={isWorking} onStart={onStart} onFinish={onFinish} />
             <ReplaceTagWorker project={project} disabled={isWorking} onStart={onStart} onFinish={onFinish} />
         </div>
         {output && (
-            <div className={`px-4 py-2 rounded-md text-sm font-mono ${output.kind === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+            <div className={`px-4 py-2 rounded-md text-sm font-mono whitespace-pre-wrap ${output.kind === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
                 {output.message}
             </div>
         )}
@@ -111,10 +123,11 @@ function ReplaceTagWorker({ project, disabled, onStart, onFinish }: { project: s
     </form>
 }
 
-function WorkerButton<T>({ title, action, project, disabled, onStart, onFinish }: {
+function WorkerButton<T>({ title, action, project, disabled, onStart, onFinish, payloadToMessage }: {
     project: string,
     title: string,
     action: (payload: { project: string }) => Promise<{ success: boolean, payload: T }>
+    payloadToMessage?: (payload: T) => string,
 } & WorkerCallbacks) {
     const [isPending, startTransition] = useTransition()
 
@@ -123,10 +136,8 @@ function WorkerButton<T>({ title, action, project, disabled, onStart, onFinish }
         onStart()
         startTransition(async () => {
             const result = await action({ project })
-            onFinish(result.success
-                ? { kind: 'success', message: JSON.stringify(result.payload) }
-                : { kind: 'error', message: JSON.stringify(result.payload) }
-            )
+            const message = payloadToMessage ? payloadToMessage(result.payload) : JSON.stringify(result.payload)
+            onFinish({ kind: result.success ? 'success' : 'error', message })
         })
     }
 
