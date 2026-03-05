@@ -230,7 +230,7 @@ export async function findOrphanedOriginals({ project }: { project: string }) {
     ])
 
     if (!listResult.success) {
-        return { success: false, payload: { orphans: [] as string[], message: listResult.message } }
+        return { success: false, payload: { orphans: [] as string[] } }
     }
 
     const assetFileNames = new Set(allAssets.map(a => a.fileName))
