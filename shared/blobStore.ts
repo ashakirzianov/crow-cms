@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { Result } from './result'
 
@@ -35,6 +35,25 @@ export async function downloadFromStorage({ key }: { key: string }): Promise<Res
 
     const bytes = await response.Body.transformToByteArray()
     return { success: true, buffer: Buffer.from(bytes) }
+}
+
+export async function deleteFromStorage({ key }: { key: string }): Promise<Result> {
+    try {
+        const s3Client = getS3Client()
+        if (!s3Client) {
+            return { success: false, message: 'S3 client not initialized. Check AWS credentials.' }
+        }
+        await s3Client.send(new DeleteObjectCommand({
+            Bucket: S3_CONFIG.BUCKET_NAME,
+            Key: key,
+        }))
+        return { success: true }
+    } catch (error) {
+        return {
+            success: false,
+            message: error instanceof Error ? `S3 delete error: ${error.message}` : 'Unknown S3 error',
+        }
+    }
 }
 
 /**

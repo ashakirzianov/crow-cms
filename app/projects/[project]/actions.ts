@@ -3,6 +3,7 @@ import { AssetMetadata, AssetMetadataUpdate, AssetKind, parseTagsString } from "
 import { applyMetadataUpdates, deleteAssetMetadata, getAssetMetadata, storeAssets } from "@/shared/metadataStore"
 import { isAuthorized } from "@/shared/auth"
 import { parseAssetCreates, parseAssetUpdates } from "@/app/projects/[project]/common"
+import { deleteAssetFiles } from "@/shared/fileStore"
 
 export async function updateAsset({
     project, id, formData,
@@ -78,12 +79,14 @@ export async function deleteAsset({
             return { success: false, message: `Asset with ID "${id}" not found` }
         }
 
-        // Delete the asset from metadata store using the dedicated function
-        const result = await deleteAssetMetadata({ id, project })
+        const [metadataResult] = await Promise.all([
+            deleteAssetMetadata({ id, project }),
+            deleteAssetFiles({ fileName: asset.fileName, project }),
+        ])
 
         return {
-            success: result,
-            message: result ? 'Asset deleted successfully' : 'Failed to delete asset'
+            success: metadataResult,
+            message: metadataResult ? 'Asset deleted successfully' : 'Failed to delete asset'
         }
     } catch (error) {
         console.error('Error deleting asset:', error)

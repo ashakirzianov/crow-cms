@@ -1,7 +1,7 @@
 import { AssetMetadata, generateAssetId, splitFileNameAndExtension } from './assets'
 import { getAssetIds, storeAsset, acquireVariantLock, releaseVariantLock, isVariantLocked } from './metadataStore'
 import { processImageFile, createImageVariant, getImageInfo, ProcessedImage } from './images'
-import { uploadToStorage, downloadFromStorage, existsInStorage, getPresignedUploadUrl } from './blobStore'
+import { uploadToStorage, downloadFromStorage, existsInStorage, getPresignedUploadUrl, deleteFromStorage } from './blobStore'
 import { Result } from './result'
 import { DEFAULT_VARIANT_SPECS, variantFileName, VariantSpec } from './variants'
 import { lazy, Lazy } from './utils'
@@ -15,6 +15,19 @@ export type UploadProgress = {
     progress: number // 0 to 100
     status: 'pending' | 'uploading' | 'success' | 'error'
     error?: string
+}
+
+export async function deleteAssetFiles({ fileName, project }: {
+    fileName: string
+    project: string
+}): Promise<void> {
+    const keys = [
+        fullKeyForOriginal({ fileName, project }),
+        ...DEFAULT_VARIANT_SPECS.map(variant =>
+            fullKeyForVariant({ fileName: variantFileName({ originalName: fileName, variant }), project })
+        ),
+    ]
+    await Promise.allSettled(keys.map(key => deleteFromStorage({ key })))
 }
 
 /**
