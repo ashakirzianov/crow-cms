@@ -1,7 +1,7 @@
 import { AssetMetadata, generateAssetId, splitFileNameAndExtension } from './assets'
 import { getAssetIds, storeAsset, acquireVariantLock, releaseVariantLock, isVariantLocked } from './metadataStore'
-import { processImageFile, createImageVariant, ProcessedImage } from './images'
-import { uploadToStorage, downloadFromStorage, existsInStorage } from './blobStore'
+import { processImageFile, createImageVariant, getImageInfo, ProcessedImage } from './images'
+import { uploadToStorage, downloadFromStorage, existsInStorage, getPresignedUploadUrl } from './blobStore'
 import { Result } from './result'
 import { DEFAULT_VARIANT_SPECS, variantFileName, VariantSpec } from './variants'
 import { lazy, Lazy } from './utils'
@@ -15,6 +15,101 @@ export type UploadProgress = {
     progress: number // 0 to 100
     status: 'pending' | 'uploading' | 'success' | 'error'
     error?: string
+}
+
+/**
+ * Generates a unique fileName/assetId and returns a presigned URL for direct S3 upload.
+ * Call confirmUploadedAsset after the client has uploaded to the presigned URL.
+ */
+export async function generateUploadTarget({ project, fileName, contentType }: {
+    project: string
+    fileName: string
+    contentType: string
+}): Promise<Result<{
+    fileName: string
+    presignedUrl: string
+}>> {
+    try {
+        const [baseFileName, fileExtension] = splitFileNameAndExtension(fileName)
+        let currentFileName = fileName
+        let suffix = 1
+
+        // Find a unique S3 key by checking actual S3 existence, not metadata
+        while (await existsInStorage({ key: fullKeyForOriginal({ fileName: currentFileName, project }) })) {
+            currentFileName = `${baseFileName}-${suffix}.${fileExtension}`
+            suffix++
+        }
+
+        const key = fullKeyForOriginal({ fileName: currentFileName, project })
+        const presignResult = await getPresignedUploadUrl({ key, contentType })
+        if (!presignResult.success) {
+            return presignResult
+        }
+
+        return {
+            success: true,
+            fileName: currentFileName,
+            presignedUrl: presignResult.url,
+        }
+    } catch (error) {
+        return {
+            success: false,
+            message: error instanceof Error ? error.message : 'Unknown error',
+        }
+    }
+}
+
+/**
+ * Called after the client has uploaded a file to S3 via presigned URL.
+ * Validates the image, creates metadata, and generates variants.
+ */
+export async function confirmUploadedAsset({ project, fileName }: {
+    project: string
+    fileName: string
+}): Promise<Result<{ assetId: string }>> {
+    try {
+        const key = fullKeyForOriginal({ fileName, project })
+        const downloadResult = await downloadFromStorage({ key })
+        if (!downloadResult.success) {
+            return downloadResult
+        }
+
+        const infoResult = await getImageInfo(downloadResult.buffer)
+        if (!infoResult.success) {
+            return infoResult
+        }
+
+        // Generate assetId server-side from the confirmed fileName
+        const [baseFileName] = splitFileNameAndExtension(fileName)
+        const assetId = generateAssetId(baseFileName)
+
+        const metadataResult = await createAssetMetadata({
+            project,
+            asset: {
+                id: assetId,
+                fileName,
+                width: infoResult.width,
+                height: infoResult.height,
+                uploaded: Date.now(),
+                kind: UNPUBLISHED_KIND,
+            },
+        })
+        if (!metadataResult.success) {
+            return {
+                success: false,
+                message: `File uploaded but metadata creation failed: ${metadataResult.message}`,
+            }
+        }
+
+        await uploadDefaultVariants({ buffer: downloadResult.buffer, originalName: fileName, project })
+
+        return { success: true, assetId }
+    } catch (error) {
+        return {
+            success: false,
+            message: error instanceof Error ? error.message : 'Unknown error',
+        }
+    }
 }
 
 /**

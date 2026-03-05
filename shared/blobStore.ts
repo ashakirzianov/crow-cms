@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { Result } from './result'
 
 const S3_CONFIG = {
@@ -34,6 +35,42 @@ export async function downloadFromStorage({ key }: { key: string }): Promise<Res
 
     const bytes = await response.Body.transformToByteArray()
     return { success: true, buffer: Buffer.from(bytes) }
+}
+
+/**
+ * Generates a presigned URL for direct client-to-S3 upload
+ * NOTE: The S3 bucket must have CORS configured to allow PUT from the app's origin
+ */
+export async function getPresignedUploadUrl({
+    key,
+    contentType,
+    expiresIn = 300,
+}: {
+    key: string
+    contentType: string
+    expiresIn?: number
+}): Promise<Result<{ url: string }>> {
+    try {
+        const s3Client = getS3Client()
+        if (!s3Client) {
+            return { success: false, message: 'S3 client not initialized. Check AWS credentials.' }
+        }
+
+        const command = new PutObjectCommand({
+            Bucket: S3_CONFIG.BUCKET_NAME,
+            Key: key,
+            ContentType: contentType,
+            CacheControl: 'max-age=31536000',
+        })
+
+        const url = await getSignedUrl(s3Client, command, { expiresIn })
+        return { success: true, url }
+    } catch (error) {
+        return {
+            success: false,
+            message: error instanceof Error ? `Presign error: ${error.message}` : 'Unknown presign error',
+        }
+    }
 }
 
 /**

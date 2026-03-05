@@ -3,8 +3,6 @@ import { AssetMetadata, AssetMetadataUpdate, AssetKind, parseTagsString } from "
 import { applyMetadataUpdates, deleteAssetMetadata, getAssetMetadata, storeAssets } from "@/shared/metadataStore"
 import { isAuthorized } from "@/shared/auth"
 import { parseAssetCreates, parseAssetUpdates } from "@/app/projects/[project]/common"
-import { uploadAssetFile } from "@/shared/fileStore"
-import { Result } from "@/shared/result"
 
 export async function updateAsset({
     project, id, formData,
@@ -96,41 +94,6 @@ export async function deleteAsset({
     }
 }
 
-// Server action for uploading files
-export async function uploadFile({ project, formData }: { project: string, formData: FormData }): Promise<Result<{
-    fileName: string;
-    assetId: string;
-}>> {
-    try {
-        if (!await isAuthorized(project)) {
-            return { success: false, message: 'Unauthorized' }
-        }
-        // Get the file from the form data
-        const file = formData.get('file') as File
-
-        if (!file) {
-            return { success: false, message: 'No file provided' }
-        }
-
-        // Log the file information
-        console.info(`Received file upload: ${file.name}, type: ${file.type}, size: ${file.size} bytes`)
-
-        // Use the enhanced uploadAssetFile function that:
-        // 1. Processes the image (validates, resizes if needed)
-        // 2. Generates a unique asset ID based on filename
-        // 3. Uploads to S3
-        // 4. Creates metadata record
-        const result = await uploadAssetFile({ file, project })
-
-        return result
-    } catch (error) {
-        console.error('Error in uploadFile:', error)
-        return {
-            success: false,
-            message: error instanceof Error ? error.message : 'Unknown error occurred'
-        }
-    }
-}
 
 export type HandleJsonEditState = {
     success: boolean,
