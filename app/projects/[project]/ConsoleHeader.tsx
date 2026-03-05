@@ -72,7 +72,7 @@ export default function ConsoleHeader({
                     action: 'orphans',
                 })}
                 title="Orphans"
-                selected={selectedAction === 'orphans'}
+                selected={selectedAction === 'orphans' || selectedAction === 'orphan'}
                 shallow={shallow}
                 last
             />

@@ -1,8 +1,14 @@
 import Image from "next/image"
+import Link from "next/link"
+import clsx from "clsx"
 import { variantSrc, variantFileName } from "@/shared/variants"
+import { hrefForConsole } from "@/shared/href"
 import { findOrphanedOriginals } from "./workers"
 
-export default async function OrphansGrid({ project }: { project: string }) {
+export default async function OrphansGrid({ project, selectedFileName }: {
+    project: string,
+    selectedFileName?: string,
+}) {
     const result = await findOrphanedOriginals({ project })
 
     if (!result.success) {
@@ -21,32 +27,46 @@ export default async function OrphansGrid({ project }: { project: string }) {
         </section>
         <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full">
             {orphans.map(fileName => (
-                <OrphanCard key={fileName} project={project} fileName={fileName} />
+                <OrphanCard
+                    key={fileName}
+                    project={project}
+                    fileName={fileName}
+                    isSelected={fileName === selectedFileName}
+                />
             ))}
         </section>
     </>
 }
 
-function OrphanCard({ project, fileName }: { project: string, fileName: string }) {
+function OrphanCard({ project, fileName, isSelected }: {
+    project: string,
+    fileName: string,
+    isSelected: boolean,
+}) {
     const src = variantSrc({
         variantName: variantFileName({ originalName: fileName }),
         project,
     })
 
     return (
-        <div className="border border-gray-200 p-2">
-            <div className="h-32 relative">
-                <Image
-                    src={src}
-                    unoptimized
-                    alt={fileName}
-                    fill
-                    style={{ objectFit: 'contain' }}
-                />
+        <Link href={hrefForConsole({ project, action: `orphan:${fileName}` })}>
+            <div className={clsx("border p-2 cursor-pointer hover:bg-gray-100", {
+                "border-accent bg-gray-100": isSelected,
+                "border-gray-200": !isSelected,
+            })}>
+                <div className="h-32 relative">
+                    <Image
+                        src={src}
+                        unoptimized
+                        alt={fileName}
+                        fill
+                        style={{ objectFit: 'contain' }}
+                    />
+                </div>
+                <div className="mt-2">
+                    <div className="text-sm font-mono truncate text-gray-500">{fileName}</div>
+                </div>
             </div>
-            <div className="mt-2">
-                <div className="text-sm font-mono truncate text-gray-500">{fileName}</div>
-            </div>
-        </div>
+        </Link>
     )
 }

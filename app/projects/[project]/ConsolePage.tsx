@@ -17,7 +17,7 @@ export default function ConsolePage({
 }) {
     const kinds = extractUniqueKinds(assets)
     const tags = extractUniqueTags(assets)
-    const { action, filter: filterParam, assetId } = parseSearchParams(searchParams)
+    const { action, filter: filterParam, assetId, orphanFileName } = parseSearchParams(searchParams)
     const filter = filterParam ?? 'all'
     const query = filter === 'all' ? null : filter
     const filteredAssets = assetsForQuery(assets, query)
@@ -27,6 +27,7 @@ export default function ConsolePage({
         query={query}
         action={action}
         assetId={assetId}
+        orphanFileName={orphanFileName}
     />
     return <section className="flex flex-col h-screen">
         <div className="flex flex-col min-h-screen">
@@ -46,9 +47,9 @@ export default function ConsolePage({
             <div className="flex flex-1 overflow-hidden">
                 {/* Main content */}
                 <main className={clsx("flex-1 overflow-auto p-4 w-full")}>
-                    {action === 'orphans'
+                    {action === 'orphans' || action === 'orphan'
                         ? <Suspense fallback={<div className="text-accent">Loading orphans...</div>}>
-                            <OrphansGrid project={project} />
+                            <OrphansGrid project={project} selectedFileName={orphanFileName} />
                         </Suspense>
                         : <ConsoleGrid
                             project={project}
@@ -78,6 +79,7 @@ type ParsedSearchParams = {
     action?: string,
     filter?: string,
     assetId?: string,
+    orphanFileName?: string,
 }
 function parseSearchParams(searchParams: ConsoleSearchParams): ParsedSearchParams {
     const result: ParsedSearchParams = {}
@@ -86,6 +88,9 @@ function parseSearchParams(searchParams: ConsoleSearchParams): ParsedSearchParam
         if (aside.startsWith('edit:')) {
             result.assetId = aside.slice('edit:'.length)
             result.action = 'edit'
+        } else if (aside.startsWith('orphan:')) {
+            result.orphanFileName = aside.slice('orphan:'.length)
+            result.action = 'orphan'
         } else {
             result.action = aside
         }

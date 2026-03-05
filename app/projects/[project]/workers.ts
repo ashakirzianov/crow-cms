@@ -2,7 +2,7 @@
 
 import { AssetMetadata, AssetMetadataUpdate, sortAssets, toSafeId } from "@/shared/assets"
 import { applyMetadataUpdates, changeAssetId, loadAllAssetMetadata, getAssetIds } from "@/shared/metadataStore"
-import { requestVariants } from "@/shared/fileStore"
+import { requestVariants, deleteAssetFiles } from "@/shared/fileStore"
 import { listKeysWithPrefix } from "@/shared/blobStore"
 import { makeBatches } from "@/shared/utils"
 import { DEFAULT_VARIANT_SPECS, variantFileName } from "@/shared/variants"
@@ -143,6 +143,11 @@ export async function normalizeOrder({ project }: { project: string }) {
             count: updates.length,
         },
     }
+}
+
+export async function deleteOrphan({ project, fileName }: { project: string, fileName: string }) {
+    await deleteAssetFiles({ fileName, project })
+    return { success: true }
 }
 
 export async function findOrphanedOriginals({ project }: { project: string }) {
