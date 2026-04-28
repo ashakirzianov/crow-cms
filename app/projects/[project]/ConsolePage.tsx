@@ -55,15 +55,6 @@ export default function ConsolePage({
                 {showAside && (
                     <aside className="w-1/3 p-4 overflow-auto">
                         <div className="sticky top-0">
-                            <div className="flex justify-end mb-2">
-                                <Link
-                                    href={hrefForConsole({ project, filter })}
-                                    shallow={shallow}
-                                    className="text-accent hover:text-secondary text-sm"
-                                >
-                                    ✕ close
-                                </Link>
-                            </div>
                             <ConsoleAside
                                 project={project}
                                 assets={assets}
@@ -71,6 +62,8 @@ export default function ConsolePage({
                                 action={action}
                                 assetId={assetId}
                                 orphanFileName={orphanFileName}
+                                closeHref={hrefForConsole({ project, filter })}
+                                shallow={shallow}
                             />
                         </div>
                     </aside>

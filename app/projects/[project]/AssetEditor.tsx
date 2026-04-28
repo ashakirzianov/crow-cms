@@ -18,7 +18,9 @@ export default function AssetEditor({
   kinds,
   tags,
   onUpdate,
-  onDelete
+  onDelete,
+  closeHref,
+  shallow,
 }: {
   project: string,
   asset: AssetMetadata,
@@ -27,6 +29,8 @@ export default function AssetEditor({
   tags: AssetTag[],
   onUpdate?: (asset: AssetMetadata) => void,
   onDelete?: () => void,
+  closeHref?: string,
+  shallow?: boolean,
 }) {
   const [isPending, startTransition] = useTransition()
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
@@ -153,21 +157,15 @@ export default function AssetEditor({
     <div className="w-full border-l p-4 ml-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">{asset.title || 'Untitled'}</h2>
-        <div className="flex space-x-2">
-          {!isDeleting && (
-            <>
-              <Button
-                onClick={() => handleSubmit(new FormData(formRef.current as HTMLFormElement))}
-                disabled={isPending}
-                text={isPending ? 'Saving...' : 'Save'}
-              />
-              <Button
-                onClick={handleDelete}
-                text="Delete"
-              />
-            </>
-          )}
-        </div>
+        {closeHref && (
+          <Link
+            href={closeHref}
+            shallow={shallow}
+            className="text-accent hover:opacity-60 text-sm"
+          >
+            ✕ close
+          </Link>
+        )}
       </div>
 
       {message && (
@@ -392,6 +390,22 @@ export default function AssetEditor({
         </div>
         <div>
           <span className="font-medium">Dimensions:</span> {asset.width}x{asset.height}
+        </div>
+
+        <div className="flex space-x-2 pt-4 border-t">
+          {!isDeleting && (
+            <>
+              <Button
+                onClick={() => handleSubmit(new FormData(formRef.current as HTMLFormElement))}
+                disabled={isPending}
+                text={isPending ? 'Saving...' : 'Save'}
+              />
+              <Button
+                onClick={handleDelete}
+                text="Delete"
+              />
+            </>
+          )}
         </div>
       </form>
     </div>
