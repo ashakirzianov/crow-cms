@@ -4,10 +4,12 @@ import { JsonEditor } from "./JsonEditor"
 import AssetEditor from "./AssetEditor"
 import WorkersPane from "./WorkersPane"
 import OrphanAside from "./OrphanAside"
+import Link from "next/link"
 
 export default function ConsoleAside({
     project,
     assets, query, action, assetId, orphanFileName,
+    closeHref, shallow,
 }: {
     project: string,
     assets: AssetMetadata[],
@@ -15,14 +17,20 @@ export default function ConsoleAside({
     action: string | undefined,
     assetId: string | undefined,
     orphanFileName: string | undefined,
+    closeHref: string,
+    shallow?: boolean,
 }) {
     switch (action) {
         case 'upload':
-            return <FileUploader project={project} />
+            return <AsideWrapper title="Upload" closeHref={closeHref} shallow={shallow}>
+                <FileUploader project={project} />
+            </AsideWrapper>
         case 'json':
             const filterd = assetsForQuery(assets, query)
             const json = JSON.stringify(filterd, null, 2)
-            return <JsonEditor project={project} initialJson={json} />
+            return <AsideWrapper title="JSON" closeHref={closeHref} shallow={shallow}>
+                <JsonEditor project={project} initialJson={json} />
+            </AsideWrapper>
         case 'edit':
             const asset = assets.find(a => a.id === assetId)
             if (asset === undefined) {
@@ -32,19 +40,48 @@ export default function ConsoleAside({
             const kinds = extractUniqueKinds(assets)
             const tags = extractUniqueTags(assets)
             return <AssetEditor
-                key={asset.id} // Add key to ensure component re-mounts when asset changes
+                key={asset.id}
                 project={project}
                 asset={asset}
                 orderRange={orderRange}
                 kinds={kinds}
                 tags={tags}
+                closeHref={closeHref}
+                shallow={shallow}
             />
         case 'workers':
-            return <WorkersPane project={project} />
+            return <AsideWrapper title="Workers" closeHref={closeHref} shallow={shallow}>
+                <WorkersPane project={project} />
+            </AsideWrapper>
         case 'orphan':
             if (!orphanFileName) return null
-            return <OrphanAside key={orphanFileName} project={project} fileName={orphanFileName} />
+            return <AsideWrapper title="Orphan" closeHref={closeHref} shallow={shallow}>
+                <OrphanAside key={orphanFileName} project={project} fileName={orphanFileName} />
+            </AsideWrapper>
         default:
             return null
     }
+}
+
+function AsideWrapper({ title, closeHref, shallow, children }: {
+    title: string,
+    closeHref: string,
+    shallow?: boolean,
+    children: React.ReactNode,
+}) {
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">{title}</h2>
+                <Link
+                    href={closeHref}
+                    shallow={shallow}
+                    className="text-accent hover:opacity-60 text-sm"
+                >
+                    ✕ close
+                </Link>
+            </div>
+            {children}
+        </div>
+    )
 }

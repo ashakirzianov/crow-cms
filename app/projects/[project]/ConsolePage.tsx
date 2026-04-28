@@ -1,10 +1,11 @@
 import { AssetMetadata, assetsForQuery, extractUniqueKinds, extractUniqueTags } from "@/shared/assets"
 import ConsoleHeader from "./ConsoleHeader"
-import clsx from "clsx"
 import { ConsoleGrid } from "./ConsoleGrid"
 import ConsoleAside from "./ConsoleAside"
 import OrphansGrid from "./OrphansGrid"
 import { Suspense } from "react"
+import Link from "next/link"
+import { hrefForConsole } from "@/shared/href"
 
 export type ConsoleSearchParams = { [key: string]: string | string[] | undefined }
 export default function ConsolePage({
@@ -21,17 +22,9 @@ export default function ConsolePage({
     const filter = filterParam ?? 'all'
     const query = filter === 'all' ? null : filter
     const filteredAssets = assetsForQuery(assets, query)
-    const aside = <ConsoleAside
-        project={project}
-        assets={assets}
-        query={query}
-        action={action}
-        assetId={assetId}
-        orphanFileName={orphanFileName}
-    />
+    const showAside = action !== undefined
     return <section className="flex flex-col h-screen">
         <div className="flex flex-col min-h-screen">
-            {/* Header */}
             <header className="w-full">
                 <ConsoleHeader
                     project={project}
@@ -43,10 +36,8 @@ export default function ConsolePage({
                 />
             </header>
 
-            {/* Content Area */}
             <div className="flex flex-1 overflow-hidden">
-                {/* Main content */}
-                <main className={clsx("flex-1 overflow-auto p-4 w-full")}>
+                <main className="flex-1 overflow-auto p-4 w-full">
                     {action === 'orphans' || action === 'orphan'
                         ? <Suspense fallback={<div className="text-accent">Loading orphans...</div>}>
                             <OrphansGrid project={project} selectedFileName={orphanFileName} />
@@ -61,11 +52,19 @@ export default function ConsolePage({
                     }
                 </main>
 
-                {/* Sticky Aside */}
-                {aside && (
+                {showAside && (
                     <aside className="w-1/3 p-4 overflow-auto">
                         <div className="sticky top-0">
-                            {aside}
+                            <ConsoleAside
+                                project={project}
+                                assets={assets}
+                                query={query}
+                                action={action}
+                                assetId={assetId}
+                                orphanFileName={orphanFileName}
+                                closeHref={hrefForConsole({ project, filter })}
+                                shallow={shallow}
+                            />
                         </div>
                     </aside>
                 )}
