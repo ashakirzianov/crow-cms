@@ -2,39 +2,26 @@ import { cacheTag, revalidateTag } from "next/cache"
 import { getProjectConfig } from "@/shared/projects"
 
 export function revalidateTagsForAssetUpdates(
-    assetIds: string[],
+    _assetIds: string[],
     project: string,
     profile: string,
 ) {
-    const internal = new Set<string>()
-    const external = new Set<string>()
-    for (const assetId of assetIds) {
-        external.add(externalTagForAssetId(assetId))
-    }
-    internal.add(tagForAssetIndex(project))
     revalidateTags({
-        internal,
-        external,
+        internal: new Set([tagForAssetIndex(project)]),
+        external: new Set([externalContentTag()]),
         profile,
         project,
     })
 }
 
 export function revalidateTagsForAssetCreations(
-    assetIds: string[],
+    _assetIds: string[],
     project: string,
     profile: string,
 ) {
-    const internal = new Set<string>()
-    const external = new Set<string>()
-    for (const assetId of assetIds) {
-        external.add(externalTagForAssetId(assetId))
-    }
-    internal.add(tagForAssetIndex(project))
-    external.add(externalTagForAssetIndex())
     revalidateTags({
-        internal,
-        external,
+        internal: new Set([tagForAssetIndex(project)]),
+        external: new Set([externalContentTag()]),
         profile,
         project,
     })
@@ -67,12 +54,8 @@ function tagForAssetId(id: string, project: string) {
     return `${project}-asset-${id}`
 }
 
-function externalTagForAssetIndex() {
-    return `crow-asset-index`
-}
-
-function externalTagForAssetId(id: string) {
-    return `crow-asset-id-${id}`
+function externalContentTag() {
+    return `crow-content`
 }
 
 function revalidateTags({ internal, external, profile, project }: {
