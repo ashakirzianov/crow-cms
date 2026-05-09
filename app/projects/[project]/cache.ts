@@ -1,38 +1,13 @@
 import { cacheTag, revalidateTag } from "next/cache"
 import { getProjectConfig } from "@/shared/projects"
 
-export function revalidateTagsForAssetUpdates(
-    _assetIds: string[],
-    project: string,
-    profile: string,
-) {
+export function revalidateAssetCacheTags(project: string, profile: string) {
     revalidateTags({
         internal: new Set([tagForAssetIndex(project)]),
         external: new Set([externalContentTag()]),
         profile,
         project,
     })
-}
-
-export function revalidateTagsForAssetCreations(
-    _assetIds: string[],
-    project: string,
-    profile: string,
-) {
-    revalidateTags({
-        internal: new Set([tagForAssetIndex(project)]),
-        external: new Set([externalContentTag()]),
-        profile,
-        project,
-    })
-}
-
-export function revalidateTagsForAssetDeletions(
-    assetIds: string[],
-    project: string,
-    profile: string,
-) {
-    return revalidateTagsForAssetCreations(assetIds, project, profile)
 }
 
 export function cacheTagForAssetsIndex(project: string) {
